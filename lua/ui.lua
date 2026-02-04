@@ -1,27 +1,27 @@
 local M = {}
 
 -- Module dependencies
-local utils = require("unipackage.utils")
-local actions = require("unipackage.actions")
+local utils = require("unipackage.lua.utils")
+local actions = require("unipackage.lua.actions")
 
 -- Safe wrapper functions to handle closure scoping issues
 local function safe_install_packages(packages)
-    local actions = require("unipackage.actions")
+    local actions = require("unipackage.lua.actions")
     return actions.install_packages(packages)
 end
 
 local function safe_uninstall_packages(packages)
-    local actions = require("unipackage.actions")
+    local actions = require("unipackage.lua.actions")
     return actions.uninstall_packages(packages)
 end
 
 local function safe_list_packages()
-    local actions = require("unipackage.actions")
+    local actions = require("unipackage.lua.actions")
     return actions.list_packages()
 end
 
 local function safe_get_installed_packages()
-    local actions = require("unipackage.actions")
+    local actions = require("unipackage.lua.actions")
     return actions.get_installed_packages()
 end
 

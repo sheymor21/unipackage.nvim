@@ -1,6 +1,6 @@
-local utils = require("unipackage.utils")
-local actions = require("unipackage.actions")
-local ui = require("unipackage.ui")
+local utils = require("unipackage.lua.utils")
+local actions = require("unipackage.lua.actions")
+local ui = require("unipackage.lua.ui")
 local config = require("unipackage.config")
 
 local M = {}
