@@ -1,7 +1,7 @@
-local utils = require("unipackage.lua.utils")
-local actions = require("unipackage.lua.actions")
-local ui = require("unipackage.lua.ui")
-local config = require("unipackage.config")
+local utils = require("unipackage.core.utils")
+local actions = require("unipackage.core.actions")
+local ui = require("unipackage.core.ui")
+local config = require("unipackage.core.config")
 
 local M = {}
 
@@ -62,7 +62,7 @@ end, { desc = "Unified package management menu with install, list, and uninstall
 
 vim.api.nvim_create_user_command('UniPackageSetup', function(opts)
     local user_config = {}
-    
+
     if opts.args and opts.args ~= "" then
         -- Try to parse as JSON if arguments provided
         local ok, parsed = pcall(vim.fn.json_decode, opts.args)
@@ -73,9 +73,9 @@ vim.api.nvim_create_user_command('UniPackageSetup', function(opts)
             return
         end
     end
-    
+
     M.setup(user_config)
-end, { 
+end, {
     desc = "Configure UniPackage settings",
     nargs = "*",
     complete = function()

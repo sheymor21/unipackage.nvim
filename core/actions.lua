@@ -1,5 +1,5 @@
 local M = {}
-local utils = require("unipackage.lua.utils")
+local utils = require("unipackage.core.utils")
 
 -- Dynamic module loading for package managers
 local function get_manager_module(manager)

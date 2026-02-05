@@ -1,5 +1,5 @@
 local M = {}
-local config = require("unipackage.config")
+local config = require("unipackage.core.config")
 
 --- Checks for package manager files in the current directory
 -- @return table: list of detected package managers
