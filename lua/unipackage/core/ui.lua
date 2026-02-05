@@ -38,7 +38,7 @@ function M.install_packages_dialog(manager)
     table.concat(detected_managers, ", ") .. "\n📌 Using: " .. manager:upper() .. "\n\n"
 
     vim.ui.input({
-        prompt = "📦 Install package(s) (" .. manager:upper() .. "):",
+        prompt = "📦 Install package(s) (" .. manager:upper() .. ") [type to search]:",
         default = "",
         completion = "file",
         relative = "editor",
@@ -52,28 +52,94 @@ function M.install_packages_dialog(manager)
             return
         end
 
-        local packages = {}
-        for pkg in input:gmatch("[^%s]+") do
-            table.insert(packages, pkg)
-        end
+        -- Check if this is a JavaScript manager and if input should trigger search
+        local is_js_manager = manager ~= "go" and manager ~= "dotnet"
+        local npm_search = require("unipackage.utils.npm_search")
 
-        if #packages == 0 then
-            vim.notify("No valid package names provided", vim.log.levels.WARN)
+        if is_js_manager and npm_search.is_search_query(input) then
+            -- Search mode
+            M.search_and_install(input, manager)
+        else
+            -- Direct install mode
+            local packages = {}
+            for pkg in input:gmatch("[^%s]+") do
+                table.insert(packages, pkg)
+            end
+
+            if #packages == 0 then
+                vim.notify("No valid package names provided", vim.log.levels.WARN)
+                return
+            end
+
+            -- Handle package@ (no version specified) -> use latest
+            for i, pkg in ipairs(packages) do
+                if pkg:match("@$") then
+                    packages[i] = pkg .. "latest"
+                    vim.notify("📦 No version specified, using @latest", vim.log.levels.INFO)
+                end
+            end
+
+            if #packages > 1 then
+                vim.ui.select({ "Yes", "No" }, {
+                    prompt = "Install these " ..
+                    #packages .. " packages with " .. manager:upper() .. "?\n  • " .. table.concat(packages, "\n  • "),
+                }, function(choice)
+                    if choice == "Yes" then
+                        actions.install_packages(packages, manager)
+                    end
+                end)
+            else
+                actions.install_packages(packages, manager)
+            end
+        end
+    end)
+end
+
+-- Search npm registry and install selected package
+function M.search_and_install(query, manager)
+    local npm_search = require("unipackage.utils.npm_search")
+
+    vim.notify("🔍 Searching npm registry for: " .. query, vim.log.levels.INFO)
+
+    -- Search
+    local results = npm_search.search_packages(query, manager, 20)
+
+    if #results == 0 then
+        vim.notify("❌ No packages found for: " .. query, vim.log.levels.WARN)
+        return
+    end
+
+    -- Format for display
+    local options = {}
+    for _, pkg in ipairs(results) do
+        local formatted = npm_search.format_search_result(pkg)
+        table.insert(options, formatted)
+    end
+
+    -- Fuzzy select
+    vim.ui.select(options, {
+        prompt = "🔍 Search results for '" .. query .. "':",
+    }, function(choice, idx)
+        if not choice or not idx then
+            vim.notify("Search cancelled", vim.log.levels.WARN)
             return
         end
 
-        if #packages > 1 then
-            vim.ui.select({ "Yes", "No" }, {
-                prompt = "Install these " ..
-                #packages .. " packages with " .. manager:upper() .. "?\n  • " .. table.concat(packages, "\n  • "),
-            }, function(choice)
-                if choice == "Yes" then
-                    actions.install_packages(packages, manager)
-                end
-            end)
-        else
-            actions.install_packages(packages, manager)
-        end
+        local selected_pkg = results[idx]
+
+        -- Install with @latest
+        local full_pkg = selected_pkg.name .. "@latest"
+
+        -- Confirm install
+        vim.ui.select({"Yes", "No"}, {
+            prompt = "📦 Install " .. full_pkg .. "?",
+        }, function(choice)
+            if choice == "Yes" then
+                actions.install_packages({full_pkg}, manager)
+            else
+                vim.notify("Installation cancelled", vim.log.levels.WARN)
+            end
+        end)
     end)
 end
 
