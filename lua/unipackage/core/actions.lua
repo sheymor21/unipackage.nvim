@@ -13,6 +13,16 @@ local function get_manager_module(manager)
         return module
     end
 
+    -- Check if it's a dotnet module
+    if manager == "dotnet" then
+        local ok, module = pcall(require, "unipackage.languages.dotnet.dotnet")
+        if not ok then
+            vim.notify("Dotnet package manager not available", vim.log.levels.ERROR)
+            return nil
+        end
+        return module
+    end
+
     -- JavaScript managers
     local ok, module = pcall(require, "unipackage.languages.javascript." .. manager)
     if not ok then
@@ -120,6 +130,28 @@ function M.run_go_mod_tidy()
     end
     
     manager_module.run_command({"tidy"})
+end
+
+--- Run dotnet restore for dotnet projects
+function M.run_dotnet_restore()
+    local manager_module = get_manager_module("dotnet")
+    if not manager_module then
+        vim.notify("Dotnet package manager not available", vim.log.levels.ERROR)
+        return
+    end
+    
+    manager_module.run_command({"restore"})
+end
+
+--- Add project reference for dotnet projects
+function M.add_dotnet_reference(project)
+    local manager_module = get_manager_module("dotnet")
+    if not manager_module then
+        vim.notify("Dotnet package manager not available", vim.log.levels.ERROR)
+        return
+    end
+    
+    manager_module.run_command({"reference", project})
 end
 
 return M

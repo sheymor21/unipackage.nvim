@@ -11,6 +11,12 @@ local function load_manager_module(manager)
         return ok and module or nil
     end
 
+    -- Check if it's a dotnet module
+    if manager == "dotnet" then
+        local ok, module = pcall(require, "unipackage.languages.dotnet.dotnet")
+        return ok and module or nil
+    end
+
     -- JavaScript managers
     local module_path = "unipackage.languages.javascript." .. manager
     local ok, module = pcall(require, module_path)
@@ -149,6 +155,38 @@ function M.package_menu(manager)
                 end
             }
         }
+    elseif manager == "dotnet" then
+        -- Dotnet-specific menu
+        options = {
+            {
+                name = "➕ Install packages (" .. manager:upper() .. ")",
+                func = function() M.install_packages_dialog(manager) end
+            },
+            {
+                name = "📄 List packages (" .. manager:upper() .. ")",
+                func = function() actions.list_packages(manager) end
+            },
+            {
+                name = "➖ Uninstall packages (" .. manager:upper() .. ")",
+                func = function() M.uninstall_packages_dialog(manager) end
+            },
+            {
+                name = "🔄 Restore packages (" .. manager:upper() .. ")",
+                func = function()
+                    vim.ui.select({ "Yes", "No" }, {
+                        prompt = "Run 'dotnet restore' to restore packages?",
+                    }, function(choice)
+                        if choice == "Yes" then
+                            actions.run_dotnet_restore()
+                        end
+                    end)
+                end
+            },
+            {
+                name = "🔗 Add project reference (" .. manager:upper() .. ")",
+                func = function() M.add_reference_dialog(manager) end
+            }
+        }
     else
         -- Standard menu for other managers
         options = {
@@ -189,6 +227,45 @@ function M.package_menu(manager)
                 break
             end
         end
+    end)
+end
+
+-- Add project reference dialog for dotnet
+function M.add_reference_dialog(manager)
+    manager = manager or utils.get_manager_for_project()
+    local module = load_manager_module(manager)
+
+    if not module then
+        vim.notify("Package manager " .. manager .. " not available", vim.log.levels.ERROR)
+        return
+    end
+
+    -- Get list of available projects
+    local projects = module.get_projects()
+
+    if #projects == 0 then
+        vim.notify("No projects found in solution", vim.log.levels.WARN)
+        return
+    end
+
+    vim.ui.select(projects, {
+        prompt = "🔗 Select project to add as reference:",
+        format_item = function(item)
+            return "• " .. item
+        end,
+    }, function(selected)
+        if not selected then
+            vim.notify("Add reference cancelled", vim.log.levels.WARN)
+            return
+        end
+
+        vim.ui.select({ "Yes", "No" }, {
+            prompt = "Add reference to: " .. selected .. "?",
+        }, function(choice)
+            if choice == "Yes" then
+                actions.add_dotnet_reference(selected)
+            end
+        end)
     end)
 end
 

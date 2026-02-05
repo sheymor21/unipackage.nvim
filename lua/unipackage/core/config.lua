@@ -3,7 +3,7 @@ local M = {}
 -- Default configuration aligned with user preferences
 local default_config = {
     -- Package manager priority order (modern → traditional)
-    package_managers = {"bun", "go", "pnpm", "npm", "yarn"},
+    package_managers = {"bun", "go", "dotnet", "pnpm", "npm", "yarn"},
     
     -- Detection settings
     auto_detect = true,
@@ -23,6 +23,10 @@ local config = vim.deepcopy(default_config)
 
 -- Language definitions with their package managers and detection files
 local languages = {
+    dotnet = {
+        managers = {"dotnet"},
+        files = {"*.sln", "*.csproj", "*.fsproj", "*.vbproj"}
+    },
     go = {
         managers = {"go"},
         files = {"go.mod", "go.sum", "go.work"}
@@ -36,6 +40,7 @@ local languages = {
 -- Package manager lock file detection patterns
 local detection_patterns = {
     bun = {"bun.lock", "bun.lockb"},
+    dotnet = {"*.sln", "*.csproj", "*.fsproj", "*.vbproj"},
     go = {"go.mod", "go.sum", "go.work"},
     npm = {"package-lock.json"},
     pnpm = {"pnpm-lock.yaml"},
@@ -44,7 +49,7 @@ local detection_patterns = {
 
 -- Validation functions
 local function validate_package_manager(name)
-    local valid_managers = {"bun", "go", "npm", "pnpm", "yarn"}
+    local valid_managers = {"bun", "dotnet", "go", "npm", "pnpm", "yarn"}
     return vim.tbl_contains(valid_managers, name)
 end
 
@@ -59,7 +64,7 @@ local function validate_config(user_config)
             for i, manager in ipairs(user_config.package_managers) do
                 if not validate_package_manager(manager) then
                     table.insert(errors, string.format(
-                        "Invalid package manager at index %d: %s. Valid managers: bun, go, npm, pnpm, yarn", 
+                        "Invalid package manager at index %d: %s. Valid managers: bun, dotnet, go, npm, pnpm, yarn",
                         i, tostring(manager)
                     ))
                 end
@@ -81,17 +86,28 @@ end
 -- Detect project language based on language-specific files
 local function detect_language()
     local cwd = vim.fn.getcwd()
-    
+
     for lang, data in pairs(languages) do
         for _, file in ipairs(data.files) do
-            local file_path = cwd .. "/" .. file
-            local stat = vim.uv.fs_stat(file_path)
-            if stat then
-                return lang
+            -- Check if file pattern contains a wildcard (starts with *.)
+            if file:match("^%*") then
+                -- Use glob to find matching files
+                local pattern = cwd .. "/" .. file
+                local files = vim.fn.glob(pattern, false, true)
+                if #files > 0 then
+                    return lang
+                end
+            else
+                -- Check for exact file match
+                local file_path = cwd .. "/" .. file
+                local stat = vim.uv.fs_stat(file_path)
+                if stat then
+                    return lang
+                end
             end
         end
     end
-    
+
     return nil
 end
 
@@ -99,21 +115,35 @@ end
 local function get_detected_managers()
     local cwd = vim.fn.getcwd()
     local detected = {}
-    
+
     -- Check for lock files
     for manager, patterns in pairs(detection_patterns) do
         for _, pattern in ipairs(patterns) do
-            local file_path = cwd .. "/" .. pattern
-            local file = vim.uv.fs_stat(file_path)
-            if file then
-                if not vim.tbl_contains(detected, manager) then
-                    table.insert(detected, manager)
+            -- Check if pattern contains a wildcard
+            if pattern:match("%*") then
+                -- Use glob to find matching files
+                local glob_pattern = cwd .. "/" .. pattern
+                local files = vim.fn.glob(glob_pattern, false, true)
+                if #files > 0 then
+                    if not vim.tbl_contains(detected, manager) then
+                        table.insert(detected, manager)
+                    end
+                    break -- Found a lock file for this manager
                 end
-                break -- Found a lock file for this manager
+            else
+                -- Check for exact file match
+                local file_path = cwd .. "/" .. pattern
+                local file = vim.uv.fs_stat(file_path)
+                if file then
+                    if not vim.tbl_contains(detected, manager) then
+                        table.insert(detected, manager)
+                    end
+                    break -- Found a lock file for this manager
+                end
             end
         end
     end
-    
+
     return detected
 end
 
