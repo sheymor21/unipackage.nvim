@@ -170,7 +170,7 @@ local function resolve_priority_manager()
             end
         end
         
-        -- Language detected but no lock file found - use first available from this language
+        -- Language detected but no lock file found
         if config.fallback_to_any then
             for _, manager in ipairs(config.package_managers) do
                 if vim.tbl_contains(lang_managers, manager) and vim.fn.executable(manager) == 1 then
@@ -184,6 +184,14 @@ local function resolve_priority_manager()
                     return manager
                 end
             end
+        else
+            -- No fallback allowed - show notification
+            vim.notify(
+                string.format("UniPackage: No package manager detected for %s project and fallback is disabled", 
+                    project_language),
+                vim.log.levels.WARN
+            )
+            return nil
         end
     end
     
@@ -196,7 +204,7 @@ local function resolve_priority_manager()
         end
     end
     
-    -- No lock files and no language detected, fallback to any available manager
+    -- No lock files and no language detected
     if config.fallback_to_any then
         for _, manager in ipairs(config.package_managers) do
             if vim.fn.executable(manager) == 1 then
@@ -209,6 +217,12 @@ local function resolve_priority_manager()
                 return manager
             end
         end
+    else
+        -- No fallback allowed - show notification
+        vim.notify(
+            "UniPackage: No package manager detected and fallback is disabled. Please check your project files or enable fallback.",
+            vim.log.levels.WARN
+        )
     end
     
     return nil

@@ -61,7 +61,7 @@ end
 function M.install_packages(packages, manager)
     manager = manager or utils.get_manager_for_project()
     if not manager then
-        vim.notify("No package manager available", vim.log.levels.ERROR)
+        vim.notify("UniPackage: No package manager available. Check your project files or enable fallback mode.", vim.log.levels.WARN)
         return
     end
     
@@ -81,7 +81,7 @@ end
 function M.uninstall_packages(packages, manager)
     manager = manager or utils.get_manager_for_project()
     if not manager then
-        vim.notify("No package manager available", vim.log.levels.ERROR)
+        vim.notify("UniPackage: No package manager available. Check your project files or enable fallback mode.", vim.log.levels.WARN)
         return
     end
 
@@ -110,7 +110,7 @@ end
 function M.list_packages(manager)
     manager = manager or utils.get_manager_for_project()
     if not manager then
-        vim.notify("No package manager available", vim.log.levels.ERROR)
+        vim.notify("UniPackage: No package manager available. Check your project files or enable fallback mode.", vim.log.levels.WARN)
         return
     end
     
