@@ -3,7 +3,7 @@ local utils = require("unipackage.core.utils")
 
 -- Dynamic module loading for package managers
 local function get_manager_module(manager)
-    local ok, module = pcall(require, "unipackage." .. manager)
+    local ok, module = pcall(require, "unipackage.languages.javascript." .. manager)
     if not ok then
         vim.notify(string.format("Package manager '%s' not implemented", manager), vim.log.levels.ERROR)
         return nil

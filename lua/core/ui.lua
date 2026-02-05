@@ -1,35 +1,26 @@
 local M = {}
 
-local function load_manager_module(manager, lang)
-    local module_path = string.format("unipackage.%s.%s", lang, manager)
+local config = require("unipackage.core.config")
+local utils = require("unipackage.core.utils")
+local actions = require("unipackage.core.actions")
+
+local function load_manager_module(manager)
+    local module_path = "unipackage.languages.javascript." .. manager
     local ok, module = pcall(require, module_path)
     return ok and module or nil
 end
 
-local function load_core_modules()
-    local config = require("unipackage.core.config")
-    local utils = require("unipackage.core.utils")
-    local actions = require("unipackage.core.actions")
-
-    return {
-        config = config,
-        utils = utils,
-        actions = actions
-    }
-end
-
 -- Package installation dialog
-function M.install_packages_dialog(manager, lang)
-    manager = manager or M.get_manager_for_project()
-    lang = lang or M.detect_project_language()
-    local module = load_manager_module(manager, lang)
+function M.install_packages_dialog(manager)
+    manager = manager or utils.get_manager_for_project()
+    local module = load_manager_module(manager)
 
     if not module then
-        vim.notify("Package manager " .. manager .. " not available for language " .. lang, vim.log.levels.ERROR)
+        vim.notify("Package manager " .. manager .. " not available", vim.log.levels.ERROR)
         return
     end
 
-    local detected_managers = module.get_available_managers()
+    local detected_managers = utils.get_detected_managers()
     local project_info = "🔍 Detected: " ..
     table.concat(detected_managers, ", ") .. "\n📌 Using: " .. manager:upper() .. "\n\n"
 
@@ -64,27 +55,26 @@ function M.install_packages_dialog(manager, lang)
                 #packages .. " packages with " .. manager:upper() .. "?\n  • " .. table.concat(packages, "\n  • "),
             }, function(choice)
                 if choice == "Yes" then
-                    M.install_packages(packages, manager, lang)
+                    actions.install_packages(packages, manager)
                 end
             end)
         else
-            M.install_packages(packages, manager, lang)
+            actions.install_packages(packages, manager)
         end
     end)
 end
 
 -- Package uninstallation dialog
-function M.uninstall_packages_dialog(manager, lang)
-    manager = manager or M.get_manager_for_project()
-    lang = lang or M.detect_project_language()
-    local module = load_manager_module(manager, lang)
+function M.uninstall_packages_dialog(manager)
+    manager = manager or utils.get_manager_for_project()
+    local module = load_manager_module(manager)
 
     if not module then
-        vim.notify("Package manager " .. manager .. " not available for language " .. lang, vim.log.levels.ERROR)
+        vim.notify("Package manager " .. manager .. " not available", vim.log.levels.ERROR)
         return
     end
 
-    local packages = module.get_installed_packages()
+    local packages = actions.get_installed_packages(manager)
 
     if #packages == 0 then
         vim.notify("No packages found to uninstall", vim.log.levels.WARN)
@@ -106,24 +96,23 @@ function M.uninstall_packages_dialog(manager, lang)
             prompt = "Uninstall package: " .. selected .. "?",
         }, function(choice)
             if choice == "Yes" then
-                M.uninstall_packages({ selected }, manager, lang)
+                actions.uninstall_packages({ selected }, manager)
             end
         end)
     end)
 end
 
 -- Unified package management menu
-function M.package_menu(manager, lang)
-    manager = manager or M.get_manager_for_project()
-    lang = lang or M.detect_project_language()
-    local module = load_manager_module(manager, lang)
+function M.package_menu(manager)
+    manager = manager or utils.get_manager_for_project()
+    local module = load_manager_module(manager)
 
     if not module then
-        vim.notify("Package manager " .. manager .. " not available for language " .. lang, vim.log.levels.ERROR)
+        vim.notify("Package manager " .. manager .. " not available", vim.log.levels.ERROR)
         return
     end
 
-    local detected_managers = module.get_available_managers()
+    local detected_managers = utils.get_detected_managers()
 
     local project_info = "🔍 Detected: " ..
     table.concat(detected_managers, ", ") .. "\n📌 Using: " .. manager:upper() .. "\n\n"
@@ -131,15 +120,15 @@ function M.package_menu(manager, lang)
     local options = {
         {
             name = "➕ Install packages (" .. manager:upper() .. ")",
-            func = function() M.install_packages_dialog(manager, lang) end
+            func = function() M.install_packages_dialog(manager) end
         },
         {
             name = "📄 List packages (" .. manager:upper() .. ")",
-            func = function() M.list_packages(manager, lang) end
+            func = function() actions.list_packages(manager) end
         },
         {
             name = "➖ Uninstall packages (" .. manager:upper() .. ")",
-            func = function() M.uninstall_packages_dialog(manager, lang) end
+            func = function() M.uninstall_packages_dialog(manager) end
         }
     }
 
