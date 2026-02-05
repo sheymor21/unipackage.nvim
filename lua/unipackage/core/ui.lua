@@ -150,7 +150,7 @@ end
 
 -- Package installation dialog
 function M.install_packages_dialog(manager)
-    manager = manager or utils.get_manager_for_project()
+    manager = manager or utils.get_manager_for_project_silent()
     if not manager then
         vim.notify("UniPackage: No package manager available. Check your project files or enable fallback mode.", vim.log.levels.WARN)
         return
@@ -356,7 +356,7 @@ end
 
 -- Package uninstallation dialog
 function M.uninstall_packages_dialog(manager)
-    manager = manager or utils.get_manager_for_project()
+    manager = manager or utils.get_manager_for_project_silent()
     if not manager then
         vim.notify("UniPackage: No package manager available. Check your project files or enable fallback mode.", vim.log.levels.WARN)
         return
@@ -471,7 +471,7 @@ end
 
 -- Unified package management menu
 function M.package_menu(manager)
-    manager = manager or utils.get_manager_for_project()
+    manager = manager or utils.get_manager_for_project_silent()
     if not manager then
         vim.notify("UniPackage: No package manager available. Check your project files or enable fallback mode.", vim.log.levels.WARN)
         return
@@ -590,7 +590,7 @@ end
 
 -- Add project reference dialog for dotnet
 function M.add_reference_dialog(manager)
-    manager = manager or utils.get_manager_for_project()
+    manager = manager or utils.get_manager_for_project_silent()
     if not manager then
         vim.notify("UniPackage: No package manager available. Check your project files or enable fallback mode.", vim.log.levels.WARN)
         return

@@ -228,6 +228,67 @@ local function resolve_priority_manager()
     return nil
 end
 
+-- Silent version of priority resolution (no notifications)
+local function resolve_priority_manager_silent()
+    local detected = get_detected_managers()
+    local project_language = detect_language()
+    
+    -- If we detected a language, only consider managers from that language
+    if project_language then
+        local lang_data = languages[project_language]
+        local lang_managers = lang_data and lang_data.managers or {}
+        
+        -- Filter detected managers to only those in this language
+        local lang_detected = {}
+        for _, manager in ipairs(detected) do
+            if vim.tbl_contains(lang_managers, manager) then
+                table.insert(lang_detected, manager)
+            end
+        end
+        
+        -- Use priority order among language-specific managers
+        if #lang_detected > 0 then
+            for _, priority_manager in ipairs(config.package_managers) do
+                if vim.tbl_contains(lang_detected, priority_manager) then
+                    return priority_manager
+                end
+            end
+        end
+        
+        -- Language detected but no lock file found
+        if config.fallback_to_any then
+            for _, manager in ipairs(config.package_managers) do
+                if vim.tbl_contains(lang_managers, manager) and vim.fn.executable(manager) == 1 then
+                    return manager
+                end
+            end
+        end
+        -- No fallback allowed - return nil silently
+        return nil
+    end
+    
+    -- No language detected, fall back to original behavior
+    if #detected > 0 then
+        for _, priority_manager in ipairs(config.package_managers) do
+            if vim.tbl_contains(detected, priority_manager) then
+                return priority_manager
+            end
+        end
+    end
+    
+    -- No lock files and no language detected
+    if config.fallback_to_any then
+        for _, manager in ipairs(config.package_managers) do
+            if vim.fn.executable(manager) == 1 then
+                return manager
+            end
+        end
+    end
+    
+    -- No fallback allowed - return nil silently
+    return nil
+end
+
 -- Public API
 M.setup = function(user_config)
     user_config = user_config or {}
@@ -262,6 +323,10 @@ end
 
 M.get_preferred_manager = function()
     return resolve_priority_manager()
+end
+
+M.get_preferred_manager_silent = function()
+    return resolve_priority_manager_silent()
 end
 
 M.is_manager_available = function(manager)

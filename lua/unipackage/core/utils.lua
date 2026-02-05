@@ -39,6 +39,13 @@ function M.get_manager_for_project()
     return config.get_preferred_manager()
 end
 
+--- Gets the package manager silently (no notifications)
+-- Used by UI functions that handle their own notifications
+-- @return string|nil: manager name or nil if none available
+function M.get_manager_for_project_silent()
+    return config.get_preferred_manager_silent()
+end
+
 --- Checks if a file exists
 -- @param path: file path to check
 -- @return boolean: true if file exists
