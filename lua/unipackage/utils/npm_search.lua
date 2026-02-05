@@ -1,6 +1,9 @@
 local M = {}
 
-local CACHE_FILE = vim.fn.stdpath('cache') .. '/unipackage_search_cache.json'
+-- Import optimized utilities
+local http = require("unipackage.utils.http")
+local cache = require("unipackage.utils.cache")
+
 local CACHE_DURATION = 30 * 60 -- 30 minutes in seconds
 
 --- Get registry URL for a specific package manager
@@ -37,56 +40,14 @@ function M.get_registry_for_manager(manager)
     return registry
 end
 
---- Load cache from disk
--- @return table: cached data or empty table
-local function load_cache()
-    local file = io.open(CACHE_FILE, "r")
-    if not file then
-        return {}
-    end
-
-    local content = file:read("*a")
-    file:close()
-
-    local ok, data = pcall(vim.fn.json_decode, content)
-    if ok and data then
-        return data
-    end
-
-    return {}
-end
-
---- Save cache to disk
--- @param data table: cache data to save
-local function save_cache(data)
-    local ok, encoded = pcall(vim.fn.json_encode, data)
-    if not ok then
-        return
-    end
-
-    local file = io.open(CACHE_FILE, "w")
-    if file then
-        file:write(encoded)
-        file:close()
-    end
-end
-
 --- Get cached search results if not expired
 -- @param query string: search query
 -- @param registry string: registry URL
 -- @return table|nil: cached results or nil if expired/not found
 function M.get_cached_search(query, registry)
-    local cache = load_cache()
-    local key = query .. "@@" .. registry
-
-    if cache[key] then
-        local age = os.time() - cache[key].timestamp
-        if age < CACHE_DURATION then
-            return cache[key].results
-        end
-    end
-
-    return nil
+    local key = "npm:" .. query .. "@@" .. registry
+    local data, found = cache.get(key)
+    return found and data or nil
 end
 
 --- Cache search results
@@ -94,48 +55,22 @@ end
 -- @param registry string: registry URL
 -- @param results table: search results to cache
 function M.cache_search(query, registry, results)
-    local cache = load_cache()
-    local key = query .. "@@" .. registry
-
-    cache[key] = {
-        timestamp = os.time(),
-        results = results,
-        registry = registry
-    }
-
-    -- Clean expired entries periodically (1 in 10 chance)
-    if math.random(10) == 1 then
-        M.clear_expired_cache(cache)
-    end
-
-    save_cache(cache)
+    local key = "npm:" .. query .. "@@" .. registry
+    cache.set(key, results, CACHE_DURATION)
 end
 
 --- Clear expired cache entries
--- @param cache table|nil: optional existing cache data
-function M.clear_expired_cache(cache)
-    cache = cache or load_cache()
-    local now = os.time()
-    local cleaned = {}
-
-    for key, entry in pairs(cache) do
-        local age = now - entry.timestamp
-        if age < CACHE_DURATION then
-            cleaned[key] = entry
-        end
-    end
-
-    save_cache(cleaned)
+function M.clear_expired_cache()
+    cache.maintenance()
 end
 
 --- Parse npm search API response
--- @param response string: JSON response from npm registry
+-- @param data table: parsed JSON response from npm registry
 -- @return table: parsed package results
-function M.parse_search_response(response)
+function M.parse_search_response(data)
     local results = {}
 
-    local ok, data = pcall(vim.fn.json_decode, response)
-    if not ok or not data or not data.objects then
+    if not data or not data.objects then
         return results
     end
 
@@ -162,7 +97,52 @@ function M.parse_search_response(response)
     return results
 end
 
---- Search npm registry for packages
+--- Search npm registry for packages (async)
+-- @param query string: search query
+-- @param manager string: package manager name
+-- @param limit number: maximum results (default 20)
+-- @param callback function: callback(results, error)
+function M.search_packages_async(query, manager, limit, callback)
+    limit = limit or 20
+    local registry = M.get_registry_for_manager(manager)
+
+    -- Check cache first
+    local cached = M.get_cached_search(query, registry)
+    if cached then
+        callback(cached, nil)
+        return
+    end
+
+    -- Build search URL
+    local encoded_query = query:gsub(" ", "+")
+    local url = string.format(
+        "%s/-/v1/search?text=%s&size=%d&popularity=1.0",
+        registry,
+        encoded_query,
+        limit
+    )
+
+    -- Make async HTTP request
+    http.get(url, function(success, data, error)
+        if not success then
+            vim.notify("NPM search failed: " .. (error or "Unknown error"), vim.log.levels.ERROR)
+            callback({}, error)
+            return
+        end
+
+        -- Parse response
+        local results = M.parse_search_response(data)
+
+        -- Cache results
+        if #results > 0 then
+            M.cache_search(query, registry, results)
+        end
+
+        callback(results, nil)
+    end)
+end
+
+--- Search npm registry for packages (sync fallback)
 -- @param query string: search query
 -- @param manager string: package manager name
 -- @param limit number: maximum results (default 20)
@@ -186,19 +166,15 @@ function M.search_packages(query, manager, limit)
         limit
     )
 
-    -- Make HTTP request using curl
-    local cmd = string.format("curl -s -m 10 '%s'", url)
-    local handle = io.popen(cmd)
-    if not handle then
-        vim.notify("Failed to execute search request", vim.log.levels.ERROR)
+    -- Make sync HTTP request (fallback)
+    local data, error = http.get_sync(url)
+    if error then
+        vim.notify("NPM search failed: " .. error, vim.log.levels.ERROR)
         return {}
     end
 
-    local response = handle:read("*a")
-    handle:close()
-
     -- Parse response
-    local results = M.parse_search_response(response)
+    local results = M.parse_search_response(data)
 
     -- Cache results
     if #results > 0 then

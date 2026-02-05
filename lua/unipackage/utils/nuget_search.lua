@@ -1,115 +1,91 @@
 local M = {}
 
-local CACHE_FILE = vim.fn.stdpath('cache') .. '/unipackage_search_cache.json'
+-- Import optimized utilities
+local http = require("unipackage.utils.http")
+local cache = require("unipackage.utils.cache")
+
 local CACHE_DURATION = 30 * 60 -- 30 minutes in seconds
 
-function M.get_search_service_url()
-    local service_index_url = "https://api.nuget.org/v3/index.json"
-    local cmd = string.format("curl -s -m 5 '%s'", service_index_url)
-
-    local handle = io.popen(cmd)
-    if not handle then
-        return "https://api-v2v3search-0.nuget.org/query"
-    end
-
-    local response = handle:read("*a")
-    handle:close()
-
-    local ok, data = pcall(vim.fn.json_decode, response)
-    if not ok or not data or not data.resources then
-        return "https://api-v2v3search-0.nuget.org/query"
-    end
-
-    for _, resource in ipairs(data.resources) do
-        if resource["@type"] and resource["@type"]:match("^SearchQueryService") then
-            return resource["@id"]
+function M.get_search_service_url(callback)
+    -- Check cache first
+    local cached_url, found = cache.get("nuget:search_service_url")
+    if found and cached_url then
+        if callback then
+            callback(cached_url)
+        else
+            return cached_url
         end
-    end
-
-    return "https://api-v2v3search-0.nuget.org/query"
-end
-
-local function load_cache()
-    local file = io.open(CACHE_FILE, "r")
-    if not file then
-        return {}
-    end
-
-    local content = file:read("*a")
-    file:close()
-
-    local ok, data = pcall(vim.fn.json_decode, content)
-    if ok and data then
-        return data
-    end
-
-    return {}
-end
-
-local function save_cache(data)
-    local ok, encoded = pcall(vim.fn.json_encode, data)
-    if not ok then
         return
     end
 
-    local file = io.open(CACHE_FILE, "w")
-    if file then
-        file:write(encoded)
-        file:close()
+    local service_index_url = "https://api.nuget.org/v3/index.json"
+    
+    if callback then
+        -- Async version
+        http.get(service_index_url, function(success, data, error)
+            if not success then
+                vim.notify("Failed to get NuGet service URL: " .. (error or "Unknown error"), vim.log.levels.WARN)
+                callback("https://api-v2v3search-0.nuget.org/query")
+                return
+            end
+
+            local search_url = "https://api-v2v3search-0.nuget.org/query"
+            if data and data.resources then
+                for _, resource in ipairs(data.resources) do
+                    if resource["@type"] and resource["@type"]:match("^SearchQueryService") then
+                        search_url = resource["@id"]
+                        break
+                    end
+                end
+            end
+
+            -- Cache for 24 hours (service URLs don't change often)
+            cache.set("nuget:search_service_url", search_url, 24 * 60 * 60)
+            callback(search_url)
+        end)
+    else
+        -- Sync fallback
+        local data, error = http.get_sync(service_index_url)
+        if error then
+            vim.notify("Failed to get NuGet service URL: " .. error, vim.log.levels.WARN)
+            return "https://api-v2v3search-0.nuget.org/query"
+        end
+
+        local search_url = "https://api-v2v3search-0.nuget.org/query"
+        if data and data.resources then
+            for _, resource in ipairs(data.resources) do
+                if resource["@type"] and resource["@type"]:match("^SearchQueryService") then
+                    search_url = resource["@id"]
+                    break
+                end
+            end
+        end
+
+        -- Cache for 24 hours
+        cache.set("nuget:search_service_url", search_url, 24 * 60 * 60)
+        return search_url
     end
 end
 
 function M.get_cached_search(query, framework)
-    local cache = load_cache()
     local key = string.format("nuget:%s-%s", query, framework or "any")
-
-    if cache[key] then
-        local age = os.time() - cache[key].timestamp
-        if age < CACHE_DURATION then
-            return cache[key].results
-        end
-    end
-
-    return nil
+    local data, found = cache.get(key)
+    return found and data or nil
 end
 
 function M.cache_search(query, framework, results)
-    local cache = load_cache()
     local key = string.format("nuget:%s-%s", query, framework or "any")
-
-    cache[key] = {
-        timestamp = os.time(),
-        results = results,
-        framework = framework
-    }
-
-    if math.random(10) == 1 then
-        M.clear_expired_cache(cache)
-    end
-
-    save_cache(cache)
+    cache.set(key, results, CACHE_DURATION)
 end
 
-function M.clear_expired_cache(cache)
-    cache = cache or load_cache()
-    local now = os.time()
-    local cleaned = {}
-
-    for key, entry in pairs(cache) do
-        local age = now - entry.timestamp
-        if age < CACHE_DURATION then
-            cleaned[key] = entry
-        end
-    end
-
-    save_cache(cleaned)
+function M.clear_expired_cache()
+    cache.maintenance()
 end
 
-function M.parse_search_response(response)
+function M.parse_search_response(data)
     local results = {}
 
-    local ok, data = pcall(vim.fn.json_decode, response)
-    if not ok or not data or not data.data then
+    if not data or not data.data then
         return results
     end
 
@@ -127,6 +103,56 @@ function M.parse_search_response(response)
     return results
 end
 
+--- Search NuGet packages (async)
+-- @param query string: search query
+-- @param framework string|nil: target framework filter
+-- @param limit number: maximum results (default 20)
+-- @param callback function: callback(results, error)
+function M.search_packages_async(query, framework, limit, callback)
+    limit = limit or 20
+
+    local cached = M.get_cached_search(query, framework)
+    if cached then
+        callback(cached, nil)
+        return
+    end
+
+    M.get_search_service_url(function(search_url)
+        local encoded_query = query:gsub(" ", "+")
+        local url = string.format(
+            "%s?q=%s&take=%d&prerelease=false",
+            search_url,
+            encoded_query,
+            limit
+        )
+
+        if framework and framework ~= "" then
+            url = url .. "&frameworks=" .. framework
+        end
+
+        http.get(url, function(success, data, error)
+            if not success then
+                vim.notify("NuGet search failed: " .. (error or "Unknown error"), vim.log.levels.ERROR)
+                callback({}, error)
+                return
+            end
+
+            local results = M.parse_search_response(data)
+
+            if #results > 0 then
+                M.cache_search(query, framework, results)
+            end
+
+            callback(results, nil)
+        end)
+    end)
+end
+
+--- Search NuGet packages (sync fallback)
+-- @param query string: search query
+-- @param framework string|nil: target framework filter
+-- @param limit number: maximum results (default 20)
+-- @return table: search results
 function M.search_packages(query, framework, limit)
     limit = limit or 20
 
@@ -149,17 +175,13 @@ function M.search_packages(query, framework, limit)
         url = url .. "&frameworks=" .. framework
     end
 
-    local cmd = string.format("curl -s -m 10 '%s'", url)
-    local handle = io.popen(cmd)
-    if not handle then
-        vim.notify("Failed to execute NuGet search request", vim.log.levels.ERROR)
+    local data, error = http.get_sync(url)
+    if error then
+        vim.notify("NuGet search failed: " .. error, vim.log.levels.ERROR)
         return {}
     end
 
-    local response = handle:read("*a")
-    handle:close()
-
-    local results = M.parse_search_response(response)
+    local results = M.parse_search_response(data)
 
     if #results > 0 then
         M.cache_search(query, framework, results)

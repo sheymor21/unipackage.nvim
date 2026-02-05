@@ -1,35 +1,58 @@
 local M = {}
 local utils = require("unipackage.core.utils")
 
--- Dynamic module loading for package managers
+-- Module cache for loaded manager modules
+local manager_module_cache = {}
+
+-- Dynamic module loading for package managers with caching
 local function get_manager_module(manager)
+    -- Check cache first
+    if manager_module_cache[manager] then
+        return manager_module_cache[manager]
+    end
+
+    local module = nil
+    local error_msg = nil
+
     -- Check if it's a Go module
     if manager == "go" then
-        local ok, module = pcall(require, "unipackage.languages.go.go")
-        if not ok then
-            vim.notify("Go package manager not available", vim.log.levels.ERROR)
-            return nil
+        local ok, loaded_module = pcall(require, "unipackage.languages.go.go")
+        if ok then
+            module = loaded_module
+        else
+            error_msg = "Go package manager not available"
         end
-        return module
-    end
-
     -- Check if it's a dotnet module
-    if manager == "dotnet" then
-        local ok, module = pcall(require, "unipackage.languages.dotnet.dotnet")
-        if not ok then
-            vim.notify("Dotnet package manager not available", vim.log.levels.ERROR)
-            return nil
+    elseif manager == "dotnet" then
+        local ok, loaded_module = pcall(require, "unipackage.languages.dotnet.dotnet")
+        if ok then
+            module = loaded_module
+        else
+            error_msg = "Dotnet package manager not available"
         end
-        return module
+    -- JavaScript managers
+    else
+        local ok, loaded_module = pcall(require, "unipackage.languages.javascript." .. manager)
+        if ok then
+            module = loaded_module
+        else
+            error_msg = string.format("Package manager '%s' not implemented", manager)
+        end
     end
 
-    -- JavaScript managers
-    local ok, module = pcall(require, "unipackage.languages.javascript." .. manager)
-    if not ok then
-        vim.notify(string.format("Package manager '%s' not implemented", manager), vim.log.levels.ERROR)
-        return nil
+    -- Cache the result (even nil to avoid repeated require calls)
+    manager_module_cache[manager] = module
+
+    if not module then
+        vim.notify(error_msg, vim.log.levels.ERROR)
     end
+
     return module
+end
+
+--- Clear module cache (useful for testing/reloading)
+function M.clear_module_cache()
+    manager_module_cache = {}
 end
 
 --- Installs packages using the detected package manager

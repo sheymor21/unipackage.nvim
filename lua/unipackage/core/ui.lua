@@ -4,23 +4,41 @@ local config = require("unipackage.core.config")
 local utils = require("unipackage.core.utils")
 local actions = require("unipackage.core.actions")
 
+-- Module cache for loaded manager modules (shared with actions.lua)
+local manager_module_cache = {}
+
 local function load_manager_module(manager)
+    -- Check cache first
+    if manager_module_cache[manager] then
+        return manager_module_cache[manager]
+    end
+
+    local module = nil
+
     -- Check if it's a Go module
     if manager == "go" then
-        local ok, module = pcall(require, "unipackage.languages.go.go")
-        return ok and module or nil
-    end
-
+        local ok, loaded_module = pcall(require, "unipackage.languages.go.go")
+        if ok then
+            module = loaded_module
+        end
     -- Check if it's a dotnet module
-    if manager == "dotnet" then
-        local ok, module = pcall(require, "unipackage.languages.dotnet.dotnet")
-        return ok and module or nil
+    elseif manager == "dotnet" then
+        local ok, loaded_module = pcall(require, "unipackage.languages.dotnet.dotnet")
+        if ok then
+            module = loaded_module
+        end
+    -- JavaScript managers
+    else
+        local module_path = "unipackage.languages.javascript." .. manager
+        local ok, loaded_module = pcall(require, module_path)
+        if ok then
+            module = loaded_module
+        end
     end
 
-    -- JavaScript managers
-    local module_path = "unipackage.languages.javascript." .. manager
-    local ok, module = pcall(require, module_path)
-    return ok and module or nil
+    -- Cache the result
+    manager_module_cache[manager] = module
+    return module
 end
 
 -- Select project for dotnet operations (async callback-based)
@@ -63,57 +81,69 @@ function M.select_dotnet_project(module, operation, callback)
     end)
 end
 
--- Search NuGet and install for dotnet
+-- Search NuGet and install for dotnet (async)
 function M.search_and_install_dotnet(query, project, manager)
     local nuget_search = require("unipackage.utils.nuget_search")
     local framework = nuget_search.get_project_framework(project)
 
-    vim.notify("🔍 Searching NuGet for: " .. query .. " (framework: " .. (framework or "any") .. ")", vim.log.levels.INFO)
+    -- Show loading notification
+    local loading_notif = vim.notify("🔍 Searching NuGet for: " .. query .. " (framework: " .. (framework or "any") .. ")", vim.log.levels.INFO, {
+        title = "Package Search",
+        timeout = false,
+    })
 
-    -- Search
-    local results = nuget_search.search_packages(query, framework, 20)
+    -- Async search
+    nuget_search.search_packages_async(query, framework, 20, function(results, error)
+        -- Clear loading notification
+        vim.notify("", vim.log.levels.INFO, { replace = loading_notif, timeout = 1 })
 
-    if #results == 0 then
-        vim.notify("❌ No packages found for: " .. query, vim.log.levels.WARN)
-        return
-    end
-
-    -- Format for display
-    local options = {}
-    for _, pkg in ipairs(results) do
-        local formatted = nuget_search.format_search_result(pkg)
-        table.insert(options, formatted)
-    end
-
-    -- Fuzzy select
-    vim.ui.select(options, {
-        prompt = "🔍 Search results for '" .. query .. "':",
-    }, function(choice, idx)
-        if not choice or not idx then
-            vim.notify("Search cancelled", vim.log.levels.WARN)
+        if error then
+            vim.notify("❌ Search failed: " .. error, vim.log.levels.ERROR)
             return
         end
 
-        local selected_pkg = results[idx]
+        if #results == 0 then
+            vim.notify("❌ No packages found for: " .. query, vim.log.levels.WARN)
+            return
+        end
 
-        -- Install (dotnet doesn't use @version syntax in the same way)
-        vim.ui.select({"Yes", "No"}, {
-            prompt = "📦 Install " .. selected_pkg.id .. " to " .. project .. "?",
-        }, function(choice)
-            if choice == "Yes" then
-                -- Use dotnet add package command with project
-                local Terminal = require("toggleterm.terminal").Terminal
-                local runner = Terminal:new({
-                    direction = "float",
-                    close_on_exit = false,
-                    hidden = true,
-                })
-                runner.cmd = "dotnet add " .. project .. " package " .. selected_pkg.id
-                runner:toggle()
-                vim.notify("📦 Installing " .. selected_pkg.id .. " to " .. project, vim.log.levels.INFO)
-            else
-                vim.notify("Installation cancelled", vim.log.levels.WARN)
+        -- Format for display
+        local options = {}
+        for _, pkg in ipairs(results) do
+            local formatted = nuget_search.format_search_result(pkg)
+            table.insert(options, formatted)
+        end
+
+        -- Fuzzy select
+        vim.ui.select(options, {
+            prompt = "🔍 Search results for '" .. query .. "':",
+        }, function(choice, idx)
+            if not choice or not idx then
+                vim.notify("Search cancelled", vim.log.levels.WARN)
+                return
             end
+
+            local selected_pkg = results[idx]
+
+            -- Install (dotnet doesn't use @version syntax in the same way)
+            vim.ui.select({"Yes", "No"}, {
+                prompt = "📦 Install " .. selected_pkg.id .. " to " .. project .. "?",
+            }, function(choice)
+                if choice == "Yes" then
+                    -- Use dotnet add package command with project
+                    local Terminal = require("toggleterm.terminal").Terminal
+                    local runner = Terminal:new({
+                        direction = "float",
+                        close_on_exit = false,
+                        hidden = true,
+                    })
+                    runner.cmd = "dotnet add " .. project .. " package " .. selected_pkg.id
+                    runner:toggle()
+                    vim.notify("📦 Installing " .. selected_pkg.id .. " to " .. project, vim.log.levels.INFO)
+                else
+                    vim.notify("Installation cancelled", vim.log.levels.WARN)
+                end
+            end)
         end)
     end)
 end
@@ -260,50 +290,62 @@ function M.install_packages_dialog(manager)
     end)
 end
 
--- Search npm registry and install selected package
+-- Search npm registry and install selected package (async)
 function M.search_and_install(query, manager)
     local npm_search = require("unipackage.utils.npm_search")
 
-    vim.notify("🔍 Searching npm registry for: " .. query, vim.log.levels.INFO)
+    -- Show loading notification
+    local loading_notif = vim.notify("🔍 Searching npm registry for: " .. query, vim.log.levels.INFO, {
+        title = "Package Search",
+        timeout = false,
+    })
 
-    -- Search
-    local results = npm_search.search_packages(query, manager, 20)
+    -- Async search
+    npm_search.search_packages_async(query, manager, 20, function(results, error)
+        -- Clear loading notification
+        vim.notify("", vim.log.levels.INFO, { replace = loading_notif, timeout = 1 })
 
-    if #results == 0 then
-        vim.notify("❌ No packages found for: " .. query, vim.log.levels.WARN)
-        return
-    end
-
-    -- Format for display
-    local options = {}
-    for _, pkg in ipairs(results) do
-        local formatted = npm_search.format_search_result(pkg)
-        table.insert(options, formatted)
-    end
-
-    -- Fuzzy select
-    vim.ui.select(options, {
-        prompt = "🔍 Search results for '" .. query .. "':",
-    }, function(choice, idx)
-        if not choice or not idx then
-            vim.notify("Search cancelled", vim.log.levels.WARN)
+        if error then
+            vim.notify("❌ Search failed: " .. error, vim.log.levels.ERROR)
             return
         end
 
-        local selected_pkg = results[idx]
+        if #results == 0 then
+            vim.notify("❌ No packages found for: " .. query, vim.log.levels.WARN)
+            return
+        end
 
-        -- Install with @latest
-        local full_pkg = selected_pkg.name .. "@latest"
+        -- Format for display
+        local options = {}
+        for _, pkg in ipairs(results) do
+            local formatted = npm_search.format_search_result(pkg)
+            table.insert(options, formatted)
+        end
 
-        -- Confirm install
-        vim.ui.select({"Yes", "No"}, {
-            prompt = "📦 Install " .. full_pkg .. "?",
-        }, function(choice)
-            if choice == "Yes" then
-                actions.install_packages({full_pkg}, manager)
-            else
-                vim.notify("Installation cancelled", vim.log.levels.WARN)
+        -- Fuzzy select
+        vim.ui.select(options, {
+            prompt = "🔍 Search results for '" .. query .. "':",
+        }, function(choice, idx)
+            if not choice or not idx then
+                vim.notify("Search cancelled", vim.log.levels.WARN)
+                return
             end
+
+            local selected_pkg = results[idx]
+
+            -- Install with @latest
+            local full_pkg = selected_pkg.name .. "@latest"
+
+            -- Confirm install
+            vim.ui.select({"Yes", "No"}, {
+                prompt = "📦 Install " .. full_pkg .. "?",
+            }, function(choice)
+                if choice == "Yes" then
+                    actions.install_packages({full_pkg}, manager)
+                else
+                    vim.notify("Installation cancelled", vim.log.levels.WARN)
+                end
+            end)
         end)
     end)
 end

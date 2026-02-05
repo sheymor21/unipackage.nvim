@@ -9,6 +9,7 @@ return {
   "sheymor/unipackage.nvim",
   dependencies = {
     "akinsho/toggleterm.nvim",
+    "nvim-lua/plenary.nvim",
   },
   config = function()
     require("unipackage").setup()
@@ -22,7 +23,10 @@ Or inline in your `init.lua`:
 require("lazy").setup({
   {
     "sheymor/unipackage.nvim",
-    dependencies = { "akinsho/toggleterm.nvim" },
+    dependencies = { 
+      "akinsho/toggleterm.nvim",
+      "nvim-lua/plenary.nvim",
+    },
     config = true, -- Uses default setup
   },
 })
@@ -33,7 +37,10 @@ require("lazy").setup({
 ```lua
 {
   "sheymor/unipackage.nvim",
-  dependencies = { "akinsho/toggleterm.nvim" },
+  dependencies = { 
+    "akinsho/toggleterm.nvim",
+    "nvim-lua/plenary.nvim",
+  },
   config = function()
     require("unipackage").setup()
     
@@ -51,7 +58,10 @@ require("lazy").setup({
 ```lua
 {
   "sheymor/unipackage.nvim",
-  dependencies = { "akinsho/toggleterm.nvim" },
+  dependencies = { 
+    "akinsho/toggleterm.nvim",
+    "nvim-lua/plenary.nvim",
+  },
   opts = {
     package_managers = { "bun", "go", "dotnet", "pnpm", "npm", "yarn" },
     fallback_to_any = true,
@@ -70,7 +80,10 @@ require("lazy").setup({
 ```lua
 use {
   "sheymor/unipackage.nvim",
-  requires = { "akinsho/toggleterm.nvim" },
+  requires = { 
+    "akinsho/toggleterm.nvim",
+    "nvim-lua/plenary.nvim",
+  },
   config = function()
     require("unipackage").setup()
   end,
@@ -81,6 +94,7 @@ use {
 
 ```vim
 Plug 'akinsho/toggleterm.nvim'
+Plug 'nvim-lua/plenary.nvim'
 Plug 'sheymor/unipackage.nvim'
 ```
 
@@ -106,7 +120,7 @@ This will show:
 
 ### Plugin not loading
 
-1. Ensure `toggleterm.nvim` is installed
+1. Ensure `toggleterm.nvim` and `plenary.nvim` are installed
 2. Check `:checkhealth lazy` for errors
 3. Verify plugin is in lazy lock file: `:Lazy show`
 
