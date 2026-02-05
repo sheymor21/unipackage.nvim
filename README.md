@@ -1,38 +1,100 @@
 # UniPackage
 
-UniPackage is a unified package management plugin for Neovim that supports multiple JavaScript package managers (bun, pnpm, npm, yarn) with intelligent priority-based selection and lock file detection.
+A unified package management plugin for Neovim supporting multiple languages and package managers with intelligent detection, search capabilities, and project-aware operations.
 
 ## Features
-- 🚀 **Multi-Manager Support**: bun, pnpm, npm, yarn with automatic detection
-- 🎯 **Smart Priority**: Modern → Traditional ordering (bun > pnpm > npm > yarn)
+
+- 🚀 **Multi-Language Support**: JavaScript/TypeScript (bun, pnpm, npm, yarn), Go, and .NET
+- 🔍 **Package Search**: Search npm and NuGet registries with intelligent filtering
+- 🎯 **Smart Priority**: Language-aware priority system with automatic detection
+- 📁 **Project Selection**: Multi-project support for .NET solutions
+- 🏷️ **Framework Compatibility**: .NET package filtering by TargetFramework
 - 🔍 **Lock File Priority**: Respects existing project setup over user preferences
-- ⚙️  **Configurable**: User-defined priority and fallback behavior
-- 🖥️ **Interactive Menu**: Single entry point with project context
-- 🔄 **Backward Compatible**: All existing commands work unchanged
+- ⚙️ **Configurable**: User-defined priority and fallback behavior
+- 🖥️ **Interactive UI**: Native Neovim UI with fuzzy finding
+- 💾 **Intelligent Caching**: 30-minute cache for search results
 
-## Quick Start
+## Supported Package Managers
 
-### Installation
+| Language | Managers | Detection Files |
+|----------|----------|----------------|
+| JavaScript/TypeScript | bun, pnpm, npm, yarn | `package.json`, lock files |
+| Go | go | `go.mod`, `go.sum`, `go.work` |
+| .NET | dotnet | `.sln`, `.csproj`, `.fsproj`, `.vbproj` |
+
+## Installation
+
+### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
+
 ```lua
--- Using your favorite plugin manager
-use {
-    "sheymor/unipackage",
+{
+    "sheymor/unipackage.nvim",
+    dependencies = {
+        "akinsho/toggleterm.nvim", -- Required for terminal integration
+    },
     config = function()
-        -- Plugin automatically works out of box
-        require("unipackage")
-    end
+        require("unipackage").setup()
+    end,
 }
 ```
 
-### Basic Usage
+### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
+
 ```lua
--- Works out of box with default priorities
-require('unipackage')
+use {
+    "sheymor/unipackage.nvim",
+    requires = { "akinsho/toggleterm.nvim" },
+    config = function()
+        require("unipackage").setup()
+    end,
+}
+```
+
+### Using [vim-plug](https://github.com/junegunn/vim-plug)
+
+```vim
+Plug 'akinsho/toggleterm.nvim'
+Plug 'sheymor/unipackage.nvim'
+```
+
+```lua
+-- In your init.lua or config
+require("unipackage").setup()
+```
+
+## Quick Start
+
+### Basic Usage
+
+```lua
+-- Works out of the box with default priorities
+require("unipackage").setup()
 
 -- Or configure custom priorities
-require('unipackage').setup({
-    package_managers = {'bun', 'pnpm', 'npm', 'yarn'}
+require("unipackage").setup({
+    package_managers = { "bun", "go", "dotnet", "pnpm", "npm", "yarn" }
 })
+```
+
+### Default Configuration
+
+```lua
+{
+    -- Package manager priority order
+    package_managers = { "bun", "go", "dotnet", "pnpm", "npm", "yarn" },
+    
+    -- Detection settings
+    auto_detect = true,
+    require_explicit = false,
+    
+    -- Fallback behavior
+    fallback_to_any = true,   -- If no lock file found, use any available manager
+    warn_on_fallback = true,  -- Show warning when using fallback
+    
+    -- UI settings
+    show_priority_in_menu = true,
+    highlight_priority_manager = true,
+}
 ```
 
 ## Commands
@@ -40,201 +102,251 @@ require('unipackage').setup({
 | Command | Description |
 |---------|-------------|
 | `:UniPackageMenu` | Interactive package management menu |
-| `:UniPackageInstall` | Install packages with auto-detection |
+| `:UniPackageInstall` | Install packages with search support |
 | `:UniPackageUninstall` | Remove packages with selection |
 | `:UniPackageList` | List installed packages |
 | `:UniPackageSetup` | Configure plugin settings |
-
-## Project Detection
-
-UniPackage automatically detects package managers based on lock files:
-
-| Manager | Lock File | Priority |
-|---------|------------|----------|
-| bun     | `bun.lock` | 1 (Highest) |
-| pnpm    | `pnpm-lock.yaml` | 2 |
-| npm      | `package-lock.json` | 3 |
-| yarn     | `yarn.lock` | 4 (Lowest) |
-
-### Detection Scenarios
-```bash
-# Single lock file
-yarn.lock present → Uses YARN
-
-# Multiple lock files
-bun.lock + package-lock.json → Uses BUN (higher priority)
-
-# No lock files
-No lock files → Uses highest priority available manager
-```
-
-## Configuration
-
-### Default Configuration
-```lua
-{
-    package_managers = {"bun", "pnpm", "npm", "yarn"},
-    auto_detect = true,
-    fallback_to_any = true,
-    warn_on_fallback = true
-}
-```
-
-### Setup Examples
-```lua
--- Modern priority (default)
-require('unipackage').setup({
-    package_managers = {'bun', 'pnpm', 'npm', 'yarn'}
-})
-
--- Traditional priority
-require('unipackage').setup({
-    package_managers = {'npm', 'yarn', 'pnpm', 'bun'}
-})
-
--- Performance-first
-require('unipackage').setup({
-    package_managers = {'pnpm', 'bun', 'npm', 'yarn'}
-})
-
--- Disable fallback
-require('unipackage').setup({
-    package_managers = {'bun', 'pnpm', 'npm', 'yarn'},
-    fallback_to_any = false
-})
-
--- Runtime configuration
-:UniPackageSetup '{"package_managers": ["bun", "pnpm"]}'
-```
-
-### Configuration Options
-
-| Option | Type | Default | Description |
-|---------|--------|----------|-------------|
-| `package_managers` | table | `{"bun", "pnpm", "npm", "yarn"}` | Priority order for package managers |
-| `auto_detect` | boolean | `true` | Automatic lock file detection |
-| `fallback_to_any` | boolean | `true` | Use any available manager when no lock file |
-| `warn_on_fallback` | boolean | `true` | Show warning when using fallback |
-| `require_explicit` | boolean | `false` | Require explicit setup before using |
-
-## Architecture
-
-UniPackage uses a modular architecture with consistent interfaces across all package managers:
-
-```
-lua/
-├── init.lua          # Main entry point + setup function
-├── config.lua        # Configuration system + validation
-├── utils.lua          # Package manager detection + utilities
-├── actions.lua        # Dynamic package manager operations
-├── ui.lua             # User interface dialogs + menu
-└── [manager].lua     # Individual package managers
-    ├── bun.lua           # Bun command execution + parsing
-    ├── pnpm.lua          # PNPM command execution + parsing
-    ├── npm.lua           # NPM command execution + parsing
-    └── yarn.lua          # Yarn command execution + parsing
-```
-
-## Priority Resolution
-
-1. **Lock file detection** takes priority over user preference
-2. **User priority** determines order within available managers
-3. **System availability** used when no lock files exist
-4. **Fallback behavior** configurable via settings
+| `:UniPackageDebug` | Show detection debug information |
 
 ## Usage Examples
 
-### Daily Workflow
+### JavaScript/TypeScript Projects
+
 ```vim
-" Open interactive menu
+" Open menu (auto-detects package manager)
 :UniPackageMenu
 
-" Install specific package
+" Install with search
 :UniPackageInstall
-Enter package(s) to install: react@18 typescript
+> Type: react
+> Search results appear...
+> Select: react @ 18.2.0
+> Installs: npm install react@latest
 
-" Remove package
-:UniPackageUninstall
-Select package(s) to uninstall: • react
+" Direct install with version
+:UniPackageInstall
+> Enter: react@18.2.0
 
-" List packages
-:UniPackageList
+" Direct install latest
+:UniPackageInstall
+> Enter: react@
+> Installs: react@latest
 ```
 
-### Project Switching
-```bash
-# Working in bun project
-cd my-bun-project
-:UniPackageMenu  # Uses BUN
+### Go Projects
 
-# Switch to npm project
-cd my-npm-project
-:UniPackageMenu  # Uses NPM
-
-# Project with multiple lock files
-cd mixed-project  # bun.lock + package-lock.json
-:UniPackageMenu  # Uses BUN (higher priority)
+```vim
+" Go works similarly with mod tidy support
+:UniPackageMenu
+  ➕ Install packages (GO)
+  📄 List packages (GO)
+  🧹 Mod Tidy (GO)
 ```
+
+### .NET Projects
+
+```vim
+" Multi-project solution
+:UniPackageMenu
+> Select project: WebApi.csproj (.NET 8)
+> Type: Newtonsoft
+> Search results (filtered for net8.0)...
+> Select: Newtonsoft.Json
+> Installs: dotnet add WebApi.csproj package Newtonsoft.Json
+
+" Direct install
+:UniPackageInstall
+> Select project: Domain.csproj (.NET Standard 2.1)
+> Enter: Newtonsoft.Json@13.0.3
+```
+
+## Language-Specific Features
+
+### JavaScript/TypeScript
+
+- **Package Search**: Search npm registry with fuzzy finding
+- **Multi-Registry**: Supports npm, yarn, pnpm, and bun registries
+- **Version Selection**: Use `@version` syntax or `@` for latest
+- **Cache**: 30-minute cache for search results
+
+### Go
+
+- **Module Management**: Supports `go.mod` and `go.work`
+- **Mod Tidy**: Integrated `go mod tidy` command
+- **Version Check**: Requires Go 1.18+ for workspace support
+
+### .NET
+
+- **Solution Support**: Multi-project solution handling
+- **Project Selection**: Select specific project for operations
+- **Framework Filtering**: Packages filtered by TargetFramework
+- **NuGet Search**: Search nuget.org with framework compatibility
+- **Package Sources**: Supports custom NuGet sources
+
+## Configuration Examples
+
+### Modern Priority (Default)
+
+```lua
+require("unipackage").setup({
+    package_managers = { "bun", "go", "dotnet", "pnpm", "npm", "yarn" }
+})
+```
+
+### Language-Specific Priority
+
+```lua
+require("unipackage").setup({
+    -- Prioritize specific languages
+    package_managers = { "dotnet", "go", "bun", "pnpm", "npm", "yarn" }
+})
+```
+
+### Disable Fallback
+
+```lua
+require("unipackage").setup({
+    fallback_to_any = false  -- Only work when lock file detected
+})
+```
+
+### Runtime Configuration
+
+```vim
+" Change priority on the fly
+:UniPackageSetup {"package_managers": ["bun", "npm"]}
+```
+
+## Detection Logic
+
+UniPackage uses intelligent language detection:
+
+1. **Language Detection**: Based on project files (go.mod, .csproj, package.json)
+2. **Manager Filtering**: Only considers managers for detected language
+3. **Priority Ordering**: Applies user-defined priority within language
+4. **Fallback**: Falls back to any available manager if configured
+
+### Detection Priority
+
+```
+Detected: go.mod → Language: Go → Manager: go
+Detected: .csproj → Language: dotnet → Manager: dotnet
+Detected: package.json → Language: javascript → Managers: bun, pnpm, npm, yarn
+```
+
+## Search Functionality
+
+### NPM Search
+
+- **Trigger**: Type package name without `@`
+- **Registry**: Uses manager's configured registry
+- **Results**: Name, version, downloads, description
+- **Filter**: Sorted by popularity
+- **Cache**: 30 minutes
+
+### NuGet Search
+
+- **Trigger**: Type package ID without version
+- **Registry**: nuget.org (with service index discovery)
+- **Framework Filter**: Based on project's TargetFramework
+- **Results**: Package ID, version, downloads, description
+- **Cache**: 30 minutes per framework
 
 ## Troubleshooting
 
-### Common Issues
+### "No supported package manager detected"
 
-#### "No supported package manager detected"
-- **Cause**: No lock file found (bun.lock, pnpm-lock.yaml, package-lock.json, yarn.lock)
-- **Solution**: Install desired package manager or create lock file
-- **Example**: `npm install` or `yarn install`
+**Cause**: No project files found (go.mod, .csproj, package.json, etc.)
+**Solution**: Ensure you're in a project directory with appropriate files
 
-#### "Package manager not available"
-- **Cause**: Package manager not installed system-wide
-- **Solution**: Install package manager
-- **Example**: `npm install -g pnpm`
+### "Package manager not available"
 
-#### Configuration errors
-```lua
--- Validate configuration
-local ok = require('unipackage').setup({
-    package_managers = {'bun', 'npm'}  -- Valid
-})
+**Cause**: Required tool not installed (dotnet, go, npm, etc.)
+**Solution**: Install the package manager:
+```bash
+# .NET
+wget https://dot.net/v1/dotnet-install.sh | bash
 
--- Invalid configuration
-local ok = require('unipackage').setup({
-    package_managers = 'invalid'  -- Error with details
-})
+# Go
+# Download from https://go.dev/dl/
+
+# Node.js package managers
+npm install -g pnpm
+npm install -g bun
 ```
 
-#### Priority conflicts
-```lua
--- Check current priority
-lua -e "print(require('unipackage').get_config('package_managers'))"
+### "Failed to execute search request"
 
--- Change priority
-require('unipackage').setup({
-    package_managers = {'pnpm', 'bun', 'npm', 'yarn'}
-})
+**Cause**: Network issue or API unavailable
+**Solution**: Check internet connection; cached results will be used if available
+
+### Project not detected in .NET solution
+
+**Cause**: No .sln or .csproj files found
+**Solution**: Ensure you're in the solution root directory
+
+### Debug Information
+
+```vim
+:UniPackageDebug
 ```
 
-## For Developers
+Shows:
+- Current directory
+- Detected language
+- Detected managers
+- Preferred manager
+- Lock file status
 
-For detailed technical documentation, see **[ARCHITECTURE.md](ARCHITECTURE.md)**
+## Architecture
 
-### Quick Developer Reference
-```lua
--- Adding new package manager
-function M.run_command(args)      -- Required: Execute commands via ToggleTerm
-function M.get_installed_packages() -- Required: Parse package lists and return arrays
-
--- Current module interfaces
-require('unipackage.bun')    -- Bun integration
-require('unipackage.npm')    -- NPM integration
-require('unipackage.pnpm')   -- PNPM integration
-require('unipackage.yarn')   -- Yarn integration
+```
+lua/unipackage/
+├── init.lua                 -- Main entry point
+├── core/
+│   ├── init.lua            -- Module exports and commands
+│   ├── config.lua          -- Configuration system
+│   ├── utils.lua           -- Detection utilities
+│   ├── actions.lua         -- Package operations
+│   └── ui.lua              -- User interface
+├── languages/
+│   ├── go/
+│   │   └── go.lua         -- Go module support
+│   ├── dotnet/
+│   │   └── dotnet.lua     -- .NET project support
+│   └── javascript/
+│       ├── bun.lua        -- Bun support
+│       ├── npm.lua        -- NPM support
+│       ├── pnpm.lua       -- PNPM support
+│       └── yarn.lua       -- Yarn support
+└── utils/
+    ├── npm_search.lua     -- NPM registry search
+    └── nuget_search.lua   -- NuGet registry search
 ```
 
-## License
+## Requirements
 
-MIT License - see [LICENSE](LICENSE) file for details.
+- Neovim >= 0.7.0
+- [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) (for terminal integration)
+- Language-specific tools:
+  - **JavaScript**: npm, yarn, pnpm, or bun
+  - **Go**: Go 1.18+ (for workspace support)
+  - **.NET**: .NET SDK
 
 ## Contributing
 
-Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please ensure:
+1. Code follows existing patterns
+2. All language managers are updated if changing core functionality
+3. Documentation is updated
+4. Test your changes with multiple package managers
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Acknowledgments
+
+- [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) - Terminal integration
+- [NuGet API](https://docs.microsoft.com/en-us/nuget/api/) - .NET package search
+- [npm Registry](https://github.com/npm/registry) - JavaScript package search
