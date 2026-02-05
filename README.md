@@ -77,23 +77,14 @@ require("unipackage").setup({
 ```
 
 ### Default Configuration
-
 ```lua
 {
     -- Package manager priority order
     package_managers = { "bun", "go", "dotnet", "pnpm", "npm", "yarn" },
     
-    -- Detection settings
-    auto_detect = true,
-    require_explicit = false,
-    
     -- Fallback behavior
     fallback_to_any = true,   -- If no lock file found, use any available manager
     warn_on_fallback = true,  -- Show warning when using fallback
-    
-    -- UI settings
-    show_priority_in_menu = true,
-    highlight_priority_manager = true,
 }
 ```
 

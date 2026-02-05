@@ -5,17 +5,13 @@ local default_config = {
     -- Package manager priority order (modern → traditional)
     package_managers = {"bun", "go", "dotnet", "pnpm", "npm", "yarn"},
     
-    -- Detection settings
-    auto_detect = true,
-    require_explicit = false,
+
     
     -- Fallback behavior
     fallback_to_any = true,  -- If no lock file found, use any available manager
     warn_on_fallback = true, -- Show warning when using fallback
     
-    -- UI settings
-    show_priority_in_menu = true,
-    highlight_priority_manager = true,
+
 }
 
 -- Internal configuration state
@@ -73,7 +69,7 @@ local function validate_config(user_config)
     end
     
     -- Validate boolean settings
-    local boolean_settings = {"auto_detect", "require_explicit", "fallback_to_any", "warn_on_fallback", "show_priority_in_menu", "highlight_priority_manager"}
+    local boolean_settings = {"fallback_to_any", "warn_on_fallback"}
     for _, setting in ipairs(boolean_settings) do
         if user_config[setting] ~= nil and type(user_config[setting]) ~= "boolean" then
             table.insert(errors, string.format("%s must be a boolean", setting))
