@@ -3,7 +3,7 @@ local M = {}
 -- Default configuration aligned with user preferences
 local default_config = {
     -- Package manager priority order (modern → traditional)
-    package_managers = {"bun", "pnpm", "npm", "yarn"},
+    package_managers = {"bun", "go", "pnpm", "npm", "yarn"},
     
     -- Detection settings
     auto_detect = true,
@@ -21,9 +21,22 @@ local default_config = {
 -- Internal configuration state
 local config = vim.deepcopy(default_config)
 
+-- Language definitions with their package managers and detection files
+local languages = {
+    go = {
+        managers = {"go"},
+        files = {"go.mod", "go.sum", "go.work"}
+    },
+    javascript = {
+        managers = {"bun", "pnpm", "npm", "yarn"},
+        files = {"package.json"}
+    }
+}
+
 -- Package manager lock file detection patterns
 local detection_patterns = {
     bun = {"bun.lock", "bun.lockb"},
+    go = {"go.mod", "go.sum", "go.work"},
     npm = {"package-lock.json"},
     pnpm = {"pnpm-lock.yaml"},
     yarn = {"yarn.lock", ".yarnrc.yml"},
@@ -31,7 +44,7 @@ local detection_patterns = {
 
 -- Validation functions
 local function validate_package_manager(name)
-    local valid_managers = {"bun", "npm", "pnpm", "yarn"}
+    local valid_managers = {"bun", "go", "npm", "pnpm", "yarn"}
     return vim.tbl_contains(valid_managers, name)
 end
 
@@ -46,7 +59,7 @@ local function validate_config(user_config)
             for i, manager in ipairs(user_config.package_managers) do
                 if not validate_package_manager(manager) then
                     table.insert(errors, string.format(
-                        "Invalid package manager at index %d: %s. Valid managers: bun, npm, pnpm, yarn", 
+                        "Invalid package manager at index %d: %s. Valid managers: bun, go, npm, pnpm, yarn", 
                         i, tostring(manager)
                     ))
                 end
@@ -63,6 +76,23 @@ local function validate_config(user_config)
     end
     
     return errors
+end
+
+-- Detect project language based on language-specific files
+local function detect_language()
+    local cwd = vim.fn.getcwd()
+    
+    for lang, data in pairs(languages) do
+        for _, file in ipairs(data.files) do
+            local file_path = cwd .. "/" .. file
+            local stat = vim.uv.fs_stat(file_path)
+            if stat then
+                return lang
+            end
+        end
+    end
+    
+    return nil
 end
 
 -- Get detected package managers from lock files
@@ -87,11 +117,51 @@ local function get_detected_managers()
     return detected
 end
 
--- Priority resolution: Lock files first, then user preference
+-- Priority resolution: Language-specific detection first, then lock files
 local function resolve_priority_manager()
     local detected = get_detected_managers()
+    local project_language = detect_language()
     
-    -- If lock files detected, use user's priority order among detected managers
+    -- If we detected a language, only consider managers from that language
+    if project_language then
+        local lang_data = languages[project_language]
+        local lang_managers = lang_data and lang_data.managers or {}
+        
+        -- Filter detected managers to only those in this language
+        local lang_detected = {}
+        for _, manager in ipairs(detected) do
+            if vim.tbl_contains(lang_managers, manager) then
+                table.insert(lang_detected, manager)
+            end
+        end
+        
+        -- Use priority order among language-specific managers
+        if #lang_detected > 0 then
+            for _, priority_manager in ipairs(config.package_managers) do
+                if vim.tbl_contains(lang_detected, priority_manager) then
+                    return priority_manager
+                end
+            end
+        end
+        
+        -- Language detected but no lock file found - use first available from this language
+        if config.fallback_to_any then
+            for _, manager in ipairs(config.package_managers) do
+                if vim.tbl_contains(lang_managers, manager) and vim.fn.executable(manager) == 1 then
+                    if config.warn_on_fallback then
+                        vim.notify(
+                            string.format("UniPackage: Using fallback manager '%s' for %s project (no lock file detected)", 
+                                manager, project_language),
+                            vim.log.levels.WARN
+                        )
+                    end
+                    return manager
+                end
+            end
+        end
+    end
+    
+    -- No language detected, fall back to original behavior
     if #detected > 0 then
         for _, priority_manager in ipairs(config.package_managers) do
             if vim.tbl_contains(detected, priority_manager) then
@@ -100,7 +170,7 @@ local function resolve_priority_manager()
         end
     end
     
-    -- No lock files, fallback to highest priority available manager
+    -- No lock files and no language detected, fallback to any available manager
     if config.fallback_to_any then
         for _, manager in ipairs(config.package_managers) do
             if vim.fn.executable(manager) == 1 then
@@ -170,6 +240,10 @@ end
 
 M.get_detection_patterns = function()
     return vim.deepcopy(detection_patterns)
+end
+
+M.get_detected_language = function()
+    return detect_language()
 end
 
 return M

@@ -3,6 +3,17 @@ local utils = require("unipackage.core.utils")
 
 -- Dynamic module loading for package managers
 local function get_manager_module(manager)
+    -- Check if it's a Go module
+    if manager == "go" then
+        local ok, module = pcall(require, "unipackage.languages.go.go")
+        if not ok then
+            vim.notify("Go package manager not available", vim.log.levels.ERROR)
+            return nil
+        end
+        return module
+    end
+
+    -- JavaScript managers
     local ok, module = pcall(require, "unipackage.languages.javascript." .. manager)
     if not ok then
         vim.notify(string.format("Package manager '%s' not implemented", manager), vim.log.levels.ERROR)
@@ -40,12 +51,19 @@ function M.uninstall_packages(packages, manager)
         vim.notify("No package manager available", vim.log.levels.ERROR)
         return
     end
-    
+
+    -- Go doesn't have traditional uninstall - use Mod Tidy instead
+    if manager == "go" then
+        vim.notify("Go doesn't support package uninstallation. Use 'Mod Tidy' instead.", vim.log.levels.WARN)
+        return
+    end
+
     local manager_module = get_manager_module(manager)
     if not manager_module then
         return
     end
-    
+
+    -- JavaScript managers
     local args = {"remove"}
     if manager == "npm" then
         args = {"uninstall"}  -- npm uses "uninstall", bun uses "remove"
@@ -91,6 +109,17 @@ function M.get_installed_packages(manager)
         -- Fallback: try to parse list command output
         return {}
     end
+end
+
+--- Run go mod tidy for Go projects
+function M.run_go_mod_tidy()
+    local manager_module = get_manager_module("go")
+    if not manager_module then
+        vim.notify("Go package manager not available", vim.log.levels.ERROR)
+        return
+    end
+    
+    manager_module.run_command({"tidy"})
 end
 
 return M

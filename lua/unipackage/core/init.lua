@@ -43,6 +43,32 @@ function M.get_detected_managers()
     return utils.get_detected_managers()
 end
 
+-- Debug function to show detection info
+function M.debug()
+    local detected = utils.get_detected_managers()
+    local preferred = utils.get_preferred_manager()
+    local patterns = config.get_detection_patterns()
+    local language = config.get_detected_language()
+    local cwd = vim.fn.getcwd()
+
+    local msg = "UniPackage Debug Info:\n\n"
+    msg = msg .. "Current directory: " .. cwd .. "\n"
+    msg = msg .. "Detected language: " .. (language or "none") .. "\n\n"
+    msg = msg .. "Detected managers: " .. vim.inspect(detected) .. "\n\n"
+    msg = msg .. "Preferred manager: " .. (preferred or "nil") .. "\n\n"
+    msg = msg .. "Checking lock files:\n"
+
+    for manager, files in pairs(patterns) do
+        msg = msg .. "  " .. manager .. ":\n"
+        for _, file in ipairs(files) do
+            local exists = vim.fn.filereadable(cwd .. "/" .. file) == 1
+            msg = msg .. "    " .. file .. ": " .. (exists and "✓ FOUND" or "✗ not found") .. "\n"
+        end
+    end
+
+    vim.notify(msg, vim.log.levels.INFO)
+end
+
 -- Create user commands
 vim.api.nvim_create_user_command('UniPackageList', function()
     M.list_packages()
@@ -87,5 +113,9 @@ end, {
         }
     end
 })
+
+vim.api.nvim_create_user_command('UniPackageDebug', function()
+    M.debug()
+end, { desc = "Show UniPackage detection debug information" })
 
 return M

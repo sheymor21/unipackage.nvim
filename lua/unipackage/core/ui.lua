@@ -5,6 +5,13 @@ local utils = require("unipackage.core.utils")
 local actions = require("unipackage.core.actions")
 
 local function load_manager_module(manager)
+    -- Check if it's a Go module
+    if manager == "go" then
+        local ok, module = pcall(require, "unipackage.languages.go.go")
+        return ok and module or nil
+    end
+
+    -- JavaScript managers
     local module_path = "unipackage.languages.javascript." .. manager
     local ok, module = pcall(require, module_path)
     return ok and module or nil
@@ -117,20 +124,48 @@ function M.package_menu(manager)
     local project_info = "🔍 Detected: " ..
     table.concat(detected_managers, ", ") .. "\n📌 Using: " .. manager:upper() .. "\n\n"
 
-    local options = {
-        {
-            name = "➕ Install packages (" .. manager:upper() .. ")",
-            func = function() M.install_packages_dialog(manager) end
-        },
-        {
-            name = "📄 List packages (" .. manager:upper() .. ")",
-            func = function() actions.list_packages(manager) end
-        },
-        {
-            name = "➖ Uninstall packages (" .. manager:upper() .. ")",
-            func = function() M.uninstall_packages_dialog(manager) end
+    local options
+    if manager == "go" then
+        -- Go-specific menu
+        options = {
+            {
+                name = "➕ Install packages (" .. manager:upper() .. ")",
+                func = function() M.install_packages_dialog(manager) end
+            },
+            {
+                name = "📄 List packages (" .. manager:upper() .. ")",
+                func = function() actions.list_packages(manager) end
+            },
+            {
+                name = "🧹 Mod Tidy (" .. manager:upper() .. ")",
+                func = function()
+                    vim.ui.select({ "Yes", "No" }, {
+                        prompt = "Run 'go mod tidy' to clean up dependencies?",
+                    }, function(choice)
+                        if choice == "Yes" then
+                            actions.run_go_mod_tidy()
+                        end
+                    end)
+                end
+            }
         }
-    }
+    else
+        -- Standard menu for other managers
+        options = {
+            {
+                name = "➕ Install packages (" .. manager:upper() .. ")",
+                func = function() M.install_packages_dialog(manager) end
+            },
+            {
+                name = "📄 List packages (" .. manager:upper() .. ")",
+                func = function() actions.list_packages(manager) end
+            },
+            {
+                name = "➖ Uninstall packages (" .. manager:upper() .. ")",
+                func = function() M.uninstall_packages_dialog(manager) end
+            }
+        }
+    end
 
     local option_names = {}
     for _, opt in ipairs(options) do
