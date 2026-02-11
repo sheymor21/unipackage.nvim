@@ -107,6 +107,8 @@ require("unipackage").setup({
 | `:UniPackageList` | List installed packages |
 | `:UniPackageSetup` | Configure plugin settings |
 | `:UniPackageDebug` | Show detection debug information |
+| `:UniPackageClearCache` | Clear all caches |
+| `:checkhealth unipackage` | Run health checks |
 
 ## Usage Examples
 
@@ -336,18 +338,45 @@ Shows:
 - Detected managers
 - Preferred manager
 - Lock file status
+- Cache statistics
+
+### Health Check
+
+```vim
+:checkhealth unipackage
+```
+
+Verifies:
+- Neovim version compatibility
+- Required dependencies (toggleterm, curl)
+- Available package managers
+- Project detection status
+- Configuration settings
+- Cache statistics
+
+### Clear Cache
+
+```vim
+:UniPackageClearCache
+```
+
+Clears all caches (memory cache, module cache, detection cache).
 
 ## Architecture
 
 ```
 lua/unipackage/
 ├── init.lua                 -- Main entry point
+├── health.lua              -- Health check module (:checkhealth)
 ├── core/
 │   ├── init.lua            -- Module exports and commands
-│   ├── config.lua          -- Configuration system
-│   ├── utils.lua           -- Detection utilities
-│   ├── actions.lua         -- Package operations
-│   └── ui.lua              -- User interface
+│   ├── config.lua          -- Configuration system (refactored)
+│   ├── constants.lua       -- Centralized constants
+│   ├── modules.lua         -- Shared module loader
+│   ├── actions.lua         -- Package operations (refactored)
+│   ├── ui.lua              -- User interface (refactored)
+│   ├── terminal.lua        -- Terminal abstraction
+│   └── error.lua           -- Error handling utilities
 ├── languages/
 │   ├── go/
 │   │   └── go.lua         -- Go module support
@@ -359,9 +388,21 @@ lua/unipackage/
 │       ├── pnpm.lua       -- PNPM support
 │       └── yarn.lua       -- Yarn support
 └── utils/
+    ├── cache.lua          -- Optimized LRU cache
+    ├── http.lua           -- HTTP utilities
     ├── npm_search.lua     -- NPM registry search
     └── nuget_search.lua   -- NuGet registry search
 ```
+
+### Refactoring Improvements
+
+- **Shared Module Loader**: `modules.lua` eliminates duplication between `actions.lua` and `ui.lua`
+- **Terminal Abstraction**: `terminal.lua` provides consistent terminal operations
+- **Error Handling**: `error.lua` centralizes error reporting with consistent formatting
+- **Constants Module**: `constants.lua` centralizes all configuration values
+- **Optimized Cache**: `cache.lua` uses O(1) LRU operations with index tracking
+- **Health Checks**: `health.lua` provides `:checkhealth` integration
+- **Code Organization**: Functions split into smaller, focused units with clear responsibilities
 
 ## Requirements
 
