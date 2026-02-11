@@ -362,48 +362,6 @@ Verifies:
 
 Clears all caches (memory cache, module cache, detection cache).
 
-## Architecture
-
-```
-lua/unipackage/
-├── init.lua                 -- Main entry point
-├── health.lua              -- Health check module (:checkhealth)
-├── core/
-│   ├── init.lua            -- Module exports and commands
-│   ├── config.lua          -- Configuration system (refactored)
-│   ├── constants.lua       -- Centralized constants
-│   ├── modules.lua         -- Shared module loader
-│   ├── actions.lua         -- Package operations (refactored)
-│   ├── ui.lua              -- User interface (refactored)
-│   ├── terminal.lua        -- Terminal abstraction
-│   └── error.lua           -- Error handling utilities
-├── languages/
-│   ├── go/
-│   │   └── go.lua         -- Go module support
-│   ├── dotnet/
-│   │   └── dotnet.lua     -- .NET project support
-│   └── javascript/
-│       ├── bun.lua        -- Bun support
-│       ├── npm.lua        -- NPM support
-│       ├── pnpm.lua       -- PNPM support
-│       └── yarn.lua       -- Yarn support
-└── utils/
-    ├── cache.lua          -- Optimized LRU cache
-    ├── http.lua           -- HTTP utilities
-    ├── npm_search.lua     -- NPM registry search
-    └── nuget_search.lua   -- NuGet registry search
-```
-
-### Refactoring Improvements
-
-- **Shared Module Loader**: `modules.lua` eliminates duplication between `actions.lua` and `ui.lua`
-- **Terminal Abstraction**: `terminal.lua` provides consistent terminal operations
-- **Error Handling**: `error.lua` centralizes error reporting with consistent formatting
-- **Constants Module**: `constants.lua` centralizes all configuration values
-- **Optimized Cache**: `cache.lua` uses O(1) LRU operations with index tracking
-- **Health Checks**: `health.lua` provides `:checkhealth` integration
-- **Code Organization**: Functions split into smaller, focused units with clear responsibilities
-
 ## Requirements
 
 - Neovim >= 0.7.0
@@ -424,6 +382,10 @@ Contributions are welcome! Please ensure:
 ## License
 
 MIT License - see LICENSE file for details.
+
+## Developer Documentation
+
+For technical documentation, architecture details, and contribution guidelines, see [DEVELOPER.md](DEVELOPER.md).
 
 ## Acknowledgments
 
