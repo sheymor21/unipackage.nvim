@@ -14,27 +14,74 @@ local terminal = require("unipackage.core.terminal")
 -- @param opts table|nil: Additional options
 local function notify(message, level, opts)
     opts = opts or {}
+    local notify_opts = {}
+    
     if opts.replace then
-        vim.notify(message, level, { replace = opts.replace, timeout = opts.timeout or 3000 })
-    else
-        vim.notify(message, level)
+        notify_opts.replace = opts.replace
     end
+    
+    -- Always set a timeout to ensure notifications don't persist indefinitely
+    notify_opts.timeout = opts.timeout or 3000
+    
+    vim.notify(message, level, notify_opts)
+end
+
+-- Store notification IDs for snacks notifier
+local notification_ids = {}
+local notification_counter = 0
+
+--- Check if snacks notifier is active
+-- @return boolean
+local function is_snacks_notifier()
+    local ok, snacks = pcall(require, "snacks.notifier")
+    return ok and snacks ~= nil
 end
 
 --- Show loading notification
 -- @param message string: Loading message
--- @return table: Notification handle
+-- @return number|nil: Notification ID or nil
 local function show_loading(message)
-    return vim.notify(message, vim.log.levels.INFO, {
-        title = "Package Search",
-        timeout = false,
-    })
+    notification_counter = notification_counter + 1
+    local notif_id = notification_counter
+    
+    if is_snacks_notifier() then
+        -- snacks notifier - show brief notification
+        vim.notify(message, vim.log.levels.INFO, {
+            title = "Package Search",
+            timeout = 3000,
+        })
+        return nil
+    else
+        -- nvim-notify - show persistent notification
+        local handle = vim.notify(message, vim.log.levels.INFO, {
+            title = "Package Search",
+            timeout = false,
+        })
+        notification_ids[notif_id] = handle
+        return notif_id
+    end
 end
 
 --- Clear loading notification
--- @param handle table: Notification handle
-local function clear_loading(handle)
-    vim.notify("", vim.log.levels.INFO, { replace = handle, timeout = 1 })
+-- @param notif_id number|nil: Notification ID
+local function clear_loading(notif_id)
+    if not notif_id then
+        return
+    end
+    
+    local handle = notification_ids[notif_id]
+    if not handle then
+        return
+    end
+    
+    -- Replace with completion message
+    vim.notify("✓ Search complete", vim.log.levels.INFO, { 
+        replace = handle,
+        timeout = 2000,
+        title = "Package Search"
+    })
+    
+    notification_ids[notif_id] = nil
 end
 
 --- Get manager module with error handling
