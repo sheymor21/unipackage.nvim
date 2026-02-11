@@ -5,7 +5,8 @@ local default_config = {
     -- Package manager priority order (modern → traditional)
     package_managers = {"bun", "go", "dotnet", "pnpm", "npm", "yarn"},
     
-
+    -- Search results configuration
+    search_batch_size = 20,  -- Number of items to show per batch in search results
     
     -- Fallback behavior
     fallback_to_any = true,  -- If no lock file found, use any available manager
@@ -73,6 +74,15 @@ local function validate_config(user_config)
     for _, setting in ipairs(boolean_settings) do
         if user_config[setting] ~= nil and type(user_config[setting]) ~= "boolean" then
             table.insert(errors, string.format("%s must be a boolean", setting))
+        end
+    end
+
+    -- Validate search_batch_size
+    if user_config.search_batch_size ~= nil then
+        if type(user_config.search_batch_size) ~= "number" then
+            table.insert(errors, "search_batch_size must be a number")
+        elseif user_config.search_batch_size < 1 or user_config.search_batch_size > 100 then
+            table.insert(errors, "search_batch_size must be between 1 and 100")
         end
     end
     

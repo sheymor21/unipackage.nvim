@@ -5,7 +5,7 @@
     "${3rd}/luv/library",
     "${3rd}/vim/library",
     "${3rd}/nvim-api/types",
-    "${3rd}/toggleterm/library"
+    "~/.local/share/nvim/lazy/toggleterm.nvim/lua"
   ],
   "Lua.workspace.checkThirdParty": false,
   "Lua.diagnostics.globals": [

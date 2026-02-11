@@ -6,12 +6,13 @@ A unified package management plugin for Neovim supporting multiple languages and
 
 - 🚀 **Multi-Language Support**: JavaScript/TypeScript (bun, pnpm, npm, yarn), Go, and .NET
 - 🔍 **Package Search**: Search npm and NuGet registries with intelligent filtering
+- 📜 **Lazy Loading**: Paginated search results with configurable batch size
 - ⚡ **High Performance**: Async HTTP requests, in-memory caching, and optimized operations
 - 🎯 **Smart Priority**: Language-aware priority system with automatic detection
 - 📁 **Project Selection**: Multi-project support for .NET solutions
 - 🏷️ **Framework Compatibility**: .NET package filtering by TargetFramework
 - 🔍 **Lock File Priority**: Respects existing project setup over user preferences
-- ⚙️ **Configurable**: User-defined priority and fallback behavior
+- ⚙️ **Configurable**: User-defined priority, fallback behavior, and search batch size
 - 🖥️ **Interactive UI**: Native Neovim UI with fuzzy finding and loading indicators
 - 💾 **Intelligent Caching**: In-memory LRU cache with size limits and persistence
 
@@ -86,7 +87,10 @@ require("unipackage").setup({
 {
     -- Package manager priority order
     package_managers = { "bun", "go", "dotnet", "pnpm", "npm", "yarn" },
-    
+
+    -- Search results configuration
+    search_batch_size = 20,   -- Number of items to show per batch in search results (1-100)
+
     -- Fallback behavior
     fallback_to_any = true,   -- If no lock file found, use any available manager
     warn_on_fallback = true,  -- Show warning when using fallback
@@ -112,10 +116,11 @@ require("unipackage").setup({
 " Open menu (auto-detects package manager)
 :UniPackageMenu
 
-" Install with search
+" Install with search (lazy loading enabled)
 :UniPackageInstall
 > Type: react
-> Search results appear...
+> Search results appear (20 items at a time)...
+> Navigate: ⬅️ Previous batch / 📥 Load more...
 > Select: react @ 18.2.0
 > Installs: npm install react@latest
 
@@ -226,6 +231,14 @@ require("unipackage").setup({
 })
 ```
 
+### Customize Search Batch Size
+
+```lua
+require("unipackage").setup({
+    search_batch_size = 10  -- Show 10 items per batch (default: 20, max: 100)
+})
+```
+
 ### Disable Fallback
 
 ```lua
@@ -265,6 +278,8 @@ Detected: package.json → Language: javascript → Managers: bun, pnpm, npm, ya
 - **Trigger**: Type package name without `@`
 - **Registry**: Uses manager's configured registry
 - **Results**: Name, version, downloads, description
+- **Lazy Loading**: Configurable batch size (default: 20, max: 100)
+- **Navigation**: ⬅️ Previous batch / 📥 Load more...
 - **Filter**: Sorted by popularity
 - **Cache**: 30 minutes
 

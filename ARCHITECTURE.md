@@ -59,8 +59,8 @@ Centralized configuration with validation and default values:
 ```lua
 -- Default configuration
 local default_config = {
-    package_managers = {"bun", "pnpm", "npm", "yarn"},
-    auto_detect = true,
+    package_managers = {"bun", "go", "dotnet", "pnpm", "npm", "yarn"},
+    search_batch_size = 20,  -- Number of items per batch in search results
     fallback_to_any = true,
     warn_on_fallback = true
 }
@@ -158,6 +158,8 @@ end
 - **Interactive dialogs**: vim.ui.input(), vim.ui.select()
 - **Safe wrapper functions**: Handle closure scoping issues
 - **Menu system**: `package_menu()` with priority indicators
+- **Lazy loading**: `search_and_install()` with configurable batch size
+- **Navigation**: Previous/Next batch options for large result sets
 - **Context awareness**: Shows detected managers and preferred choice
 - **Error messages**: User-friendly feedback for all operations
 
@@ -257,12 +259,13 @@ end
 local validation_rules = {
     -- Type checking
     package_managers = "table",
-    auto_detect = "boolean",
+    search_batch_size = "number",
     fallback_to_any = "boolean",
     warn_on_fallback = "boolean",
     
     -- Value validation
-    package_manager_names = {"bun", "npm", "pnpm", "yarn"},
+    package_manager_names = {"bun", "go", "dotnet", "npm", "pnpm", "yarn"},
+    search_batch_size_range = function(n) return n >= 1 and n <= 100 end,
     non_empty_arrays = function(arr) return #arr > 0 end
 }
 ```
@@ -400,8 +403,7 @@ The system is designed for easy extension:
 Potential areas for expansion:
 - **Workspace support**: Advanced monorepo operations
 - **Dependency trees**: Visual dependency relationships
-- **Package search**: Registry integration for package discovery
 - **Version management**: Package upgrade and downgrade operations
-- **Performance modes**: Cache integration, parallel operations
+- **Performance modes**: Parallel operations, background prefetching
 
 This architecture provides a robust, extensible foundation for package management across multiple JavaScript ecosystems while maintaining clean separation of concerns and consistent user experience.

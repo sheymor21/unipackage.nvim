@@ -295,8 +295,12 @@ function M.install_packages_dialog(manager)
 end
 
 -- Search npm registry and install selected package (async)
+-- Implements lazy loading: shows configurable batch size results initially, with "Load more..." option
 function M.search_and_install(query, manager)
     local npm_search = require("unipackage.utils.npm_search")
+    local cfg = require("unipackage.core.config")
+    local INITIAL_LIMIT = cfg.get("search_batch_size") or 20
+    local LOAD_MORE_LIMIT = INITIAL_LIMIT
 
     -- Show loading notification
     local loading_notif = vim.notify("🔍 Searching npm registry for: " .. query, vim.log.levels.INFO, {
@@ -304,8 +308,8 @@ function M.search_and_install(query, manager)
         timeout = false,
     })
 
-    -- Async search
-    npm_search.search_packages_async(query, manager, 20, function(results, error)
+    -- Async search with larger limit to get more results in background
+    npm_search.search_packages_async(query, manager, 250, function(all_results, error)
         -- Clear loading notification
         vim.notify("", vim.log.levels.INFO, { replace = loading_notif, timeout = 1 })
 
@@ -314,43 +318,86 @@ function M.search_and_install(query, manager)
             return
         end
 
-        if #results == 0 then
+        if #all_results == 0 then
             vim.notify("❌ No packages found for: " .. query, vim.log.levels.WARN)
             return
         end
 
-        -- Format for display
-        local options = {}
-        for _, pkg in ipairs(results) do
-            local formatted = npm_search.format_search_result(pkg)
-            table.insert(options, formatted)
-        end
+        -- Function to show results with lazy loading
+        local function show_results(start_idx, results)
+            local end_idx = math.min(start_idx + INITIAL_LIMIT - 1, #results)
+            local current_batch = {}
 
-        -- Fuzzy select
-        vim.ui.select(options, {
-            prompt = "🔍 Search results for '" .. query .. "':",
-        }, function(choice, idx)
-            if not choice or not idx then
-                vim.notify("Search cancelled", vim.log.levels.WARN)
-                return
+            for i = start_idx, end_idx do
+                table.insert(current_batch, results[i])
             end
 
-            local selected_pkg = results[idx]
+            -- Format for display
+            local options = {}
 
-            -- Install with @latest
-            local full_pkg = selected_pkg.name .. "@latest"
+            -- Add "Previous" option if not on first batch
+            local has_previous = start_idx > 1
+            if has_previous then
+                table.insert(options, "⬅️  Previous batch")
+            end
 
-            -- Confirm install
-            vim.ui.select({"Yes", "No"}, {
-                prompt = "📦 Install " .. full_pkg .. "?",
-            }, function(choice)
-                if choice == "Yes" then
-                    actions.install_packages({full_pkg}, manager)
-                else
-                    vim.notify("Installation cancelled", vim.log.levels.WARN)
+            for _, pkg in ipairs(current_batch) do
+                local formatted = npm_search.format_search_result(pkg)
+                table.insert(options, formatted)
+            end
+
+            -- Add "Load more..." option if there are more results
+            local has_more = end_idx < #results
+            if has_more then
+                table.insert(options, "📥 Load more... (" .. tostring(#results - end_idx) .. " remaining)")
+            end
+
+            -- Fuzzy select
+            vim.ui.select(options, {
+                prompt = "🔍 Search results for '" .. query .. "' (" .. tostring(start_idx) .. "-" .. tostring(end_idx) .. " of " .. tostring(#results) .. "):",
+            }, function(choice, idx)
+                if not choice or not idx then
+                    vim.notify("Search cancelled", vim.log.levels.WARN)
+                    return
                 end
+
+                -- Check if "Previous" was selected
+                if has_previous and idx == 1 then
+                    -- Show previous batch
+                    local prev_start = math.max(1, start_idx - INITIAL_LIMIT)
+                    show_results(prev_start, results)
+                    return
+                end
+
+                -- Check if "Load more..." was selected
+                if has_more and idx == #options then
+                    -- Show next batch
+                    show_results(end_idx + 1, results)
+                    return
+                end
+
+                -- Calculate actual index in current_batch (accounting for "Previous" option)
+                local actual_idx = has_previous and (idx - 1) or idx
+                local selected_pkg = current_batch[actual_idx]
+
+                -- Install with @latest
+                local full_pkg = selected_pkg.name .. "@latest"
+
+                -- Confirm install
+                vim.ui.select({"Yes", "No"}, {
+                    prompt = "📦 Install " .. full_pkg .. "?",
+                }, function(choice)
+                    if choice == "Yes" then
+                        actions.install_packages({full_pkg}, manager)
+                    else
+                        vim.notify("Installation cancelled", vim.log.levels.WARN)
+                    end
+                end)
             end)
-        end)
+        end
+
+        -- Show first batch
+        show_results(1, all_results)
     end)
 end
 
