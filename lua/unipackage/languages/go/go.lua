@@ -1,5 +1,7 @@
 local M = {}
 
+local terminal = require("unipackage.core.terminal")
+
 -- Minimum Go version required (1.18+ for workspace support)
 local MIN_GO_VERSION = "1.18"
 
@@ -75,16 +77,9 @@ function M.run_command(args)
         vim.notify("Go " .. MIN_GO_VERSION .. "+ is required for workspace support", vim.log.levels.ERROR)
         return
     end
-    
+
     args = args or {}
-    
-    local Terminal = require("toggleterm.terminal").Terminal
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
-    
+
     local cmd
     if args[1] == "install" then
         -- Transform install to go get
@@ -97,13 +92,17 @@ function M.run_command(args)
         cmd = "go list -m all"
     elseif args[1] == "tidy" then
         cmd = "go mod tidy"
+        terminal.run_with_header(cmd, {
+            manager = "Go",
+            title = "Go Mod Tidy",
+        })
+        return
     else
         -- Direct go command
         cmd = "go " .. table.concat(args, " ")
     end
-    
-    runner.cmd = cmd
-    runner:toggle()
+
+    terminal.run(cmd, { title = "Go" })
 end
 
 --- Gets installed packages from go list output

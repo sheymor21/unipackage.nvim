@@ -84,7 +84,7 @@ function M.uninstall_packages(packages, manager)
     manager_module.run_command(args)
 end
 
---- Lists packages using the detected package manager
+--- Lists packages using the detected package manager with styled output
 -- @param manager string|nil: specific manager to use (auto-detects if nil)
 function M.list_packages(manager)
     manager = get_manager(manager)
@@ -97,7 +97,28 @@ function M.list_packages(manager)
         return
     end
 
-    manager_module.run_command({"list"})
+    local terminal = require("unipackage.core.terminal")
+
+    -- Get the appropriate list command for the manager
+    local list_cmd
+    if manager == "npm" then
+        list_cmd = "npm list --depth=0"
+    elseif manager == "yarn" then
+        list_cmd = "yarn list --depth=0"
+    elseif manager == "pnpm" then
+        list_cmd = "pnpm list --depth=0"
+    elseif manager == "bun" then
+        list_cmd = "bun list"
+    elseif manager == "go" then
+        list_cmd = "go list -m all"
+    elseif manager == "dotnet" then
+        list_cmd = "dotnet list package"
+    else
+        list_cmd = manager .. " list"
+    end
+
+    -- Run with styled header and package count
+    terminal.run_list(list_cmd, manager)
 end
 
 --- Gets installed packages from the detected package manager
@@ -121,24 +142,32 @@ function M.get_installed_packages(manager)
     return {}
 end
 
---- Run go mod tidy for Go projects
+--- Run go mod tidy for Go projects with styled terminal
 function M.run_go_mod_tidy()
     local manager_module = get_manager_module("go")
     if not manager_module then
         return
     end
 
-    manager_module.run_command({"tidy"})
+    local terminal = require("unipackage.core.terminal")
+    terminal.run_with_header("go mod tidy", {
+        manager = "Go",
+        title = "Go Mod Tidy",
+    })
 end
 
---- Run dotnet restore for dotnet projects
+--- Run dotnet restore for dotnet projects with styled terminal
 function M.run_dotnet_restore()
     local manager_module = get_manager_module("dotnet")
     if not manager_module then
         return
     end
 
-    manager_module.run_command({"restore"})
+    local terminal = require("unipackage.core.terminal")
+    terminal.run_with_header("dotnet restore", {
+        manager = ".NET",
+        title = "Dotnet Restore",
+    })
 end
 
 --- Add project reference for dotnet projects

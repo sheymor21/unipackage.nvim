@@ -1,23 +1,14 @@
 local M = {}
 
+local terminal = require("unipackage.core.terminal")
+
 --- Executes npm commands in the current directory using ToggleTerm
 -- @param args table: arguments for npm command, e.g., {"install"} or {"uninstall", "package"}
 function M.run_command(args)
     args = args or {}
 
-    local Terminal = require("toggleterm.terminal").Terminal
-
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
-
-    -- Build command: "npm " .. table.concat(args, " ")
     local cmd = "npm " .. table.concat(args, " ")
-
-    runner.cmd = cmd
-    runner:toggle()
+    terminal.run(cmd, { title = "NPM" })
 end
 
 --- Gets installed packages from npm list output

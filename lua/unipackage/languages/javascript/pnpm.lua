@@ -1,23 +1,14 @@
 local M = {}
 
+local terminal = require("unipackage.core.terminal")
+
 --- Executes pnpm commands in the current directory using ToggleTerm
 -- @param args table: arguments for pnpm command, e.g., {"install"} or {"remove", "package"}
 function M.run_command(args)
     args = args or {}
 
-    local Terminal = require("toggleterm.terminal").Terminal
-
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
-
-    -- Build command: "pnpm " .. table.concat(args, " ")
     local cmd = "pnpm " .. table.concat(args, " ")
-
-    runner.cmd = cmd
-    runner:toggle()
+    terminal.run(cmd, { title = "PNPM" })
 end
 
 --- Gets installed packages from pnpm list output

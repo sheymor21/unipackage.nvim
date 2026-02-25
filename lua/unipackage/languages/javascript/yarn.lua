@@ -1,23 +1,14 @@
 local M = {}
 
+local terminal = require("unipackage.core.terminal")
+
 --- Executes yarn commands in the current directory using ToggleTerm
 -- @param args table: arguments for yarn command, e.g., {"install"} or {"remove", "package"}
 function M.run_command(args)
     args = args or {}
 
-    local Terminal = require("toggleterm.terminal").Terminal
-
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
-
-    -- Build command: "yarn " .. table.concat(args, " ")
     local cmd = "yarn " .. table.concat(args, " ")
-
-    runner.cmd = cmd
-    runner:toggle()
+    terminal.run(cmd, { title = "Yarn" })
 end
 
 --- Gets installed packages from yarn list output

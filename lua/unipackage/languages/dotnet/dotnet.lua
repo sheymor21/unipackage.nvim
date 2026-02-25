@@ -1,5 +1,7 @@
 local M = {}
 
+local terminal = require("unipackage.core.terminal")
+
 --- Check if current directory has a solution file
 -- @return string|nil: solution filename or nil
 function M.get_solution_file()
@@ -32,14 +34,7 @@ end
 -- @param args table: command arguments
 function M.run_command(args)
     args = args or {}
-    
-    local Terminal = require("toggleterm.terminal").Terminal
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
-    
+
     local cmd
     if args[1] == "install" then
         -- dotnet add package <name>
@@ -54,6 +49,7 @@ function M.run_command(args)
         -- For solution level, we might need to specify a project
         -- For now, let dotnet handle it
         cmd = "dotnet add package " .. packages[1]
+        terminal.run(cmd, { title = ".NET" })
     elseif args[1] == "remove" then
         -- dotnet remove package <name>
         local package = args[2]
@@ -61,22 +57,26 @@ function M.run_command(args)
             vim.notify("No package specified for removal", vim.log.levels.ERROR)
             return
         end
-        
+
         -- Show confirmation dialog
-        vim.ui.select({"Yes", "No"}, {
-            prompt = "Remove package: " .. package .. "?",
+        vim.ui.select({"[Y] Yes", "[N] No"}, {
+            prompt = "[-] Remove package: " .. package .. "?",
         }, function(choice)
-            if choice == "Yes" then
-                runner.cmd = "dotnet remove package " .. package
-                runner:toggle()
+            if choice == "[Y] Yes" then
+                terminal.run("dotnet remove package " .. package, { title = ".NET" })
                 vim.notify("Package '" .. package .. "' removed", vim.log.levels.INFO)
             end
         end)
         return
     elseif args[1] == "list" then
         cmd = "dotnet list package"
+        terminal.run(cmd, { title = ".NET" })
     elseif args[1] == "restore" then
         cmd = "dotnet restore"
+        terminal.run_with_header(cmd, {
+            manager = ".NET",
+            title = "Dotnet Restore",
+        })
     elseif args[1] == "reference" then
         -- dotnet add reference <project>
         local project = args[2]
@@ -85,13 +85,12 @@ function M.run_command(args)
             return
         end
         cmd = "dotnet add reference " .. project
+        terminal.run(cmd, { title = ".NET" })
     else
         -- Direct dotnet command
         cmd = "dotnet " .. table.concat(args, " ")
+        terminal.run(cmd, { title = ".NET" })
     end
-    
-    runner.cmd = cmd
-    runner:toggle()
 end
 
 --- Gets installed packages from dotnet list output

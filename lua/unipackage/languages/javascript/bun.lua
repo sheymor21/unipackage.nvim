@@ -1,23 +1,14 @@
 local M = {}
 
+local terminal = require("unipackage.core.terminal")
+
 --- Ejecuta un comando de Bun en el directorio actual usando ToggleTerm
 -- @param args table: argumentos del comando Bun, ejemplo {"install"} o {"run", "dev"}
 function M.run_command(args)
     args = args or {}
 
-    local Terminal = require("toggleterm.terminal").Terminal
-
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
-
-    -- Build command: "bun " .. table.concat(args, " ")
     local cmd = "bun " .. table.concat(args, " ")
-
-    runner.cmd = cmd
-    runner:toggle()
+    terminal.run(cmd, { title = "Bun" })
 end
 
 --- Gets installed packages from bun list output
@@ -45,4 +36,3 @@ function M.get_installed_packages()
 end
 
 return M
-
