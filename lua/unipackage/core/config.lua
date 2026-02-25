@@ -9,6 +9,16 @@ local default_config = {
     search_batch_size = constants.DEFAULT_SEARCH_BATCH_SIZE,
     fallback_to_any = true,
     warn_on_fallback = true,
+    version_selection = {
+        enabled = false,
+        languages = {
+            javascript = true,
+            dotnet = true,
+            go = false,
+        },
+        include_prerelease = false,
+        max_versions_shown = 20,
+    },
 }
 
 -- Internal configuration state
@@ -256,6 +266,33 @@ local function validate_config(user_config)
         end
     end
 
+    -- Validate version_selection configuration
+    if user_config.version_selection then
+        if user_config.version_selection.enabled ~= nil and type(user_config.version_selection.enabled) ~= "boolean" then
+            table.insert(errors, "version_selection.enabled must be a boolean")
+        end
+        if user_config.version_selection.include_prerelease ~= nil and type(user_config.version_selection.include_prerelease) ~= "boolean" then
+            table.insert(errors, "version_selection.include_prerelease must be a boolean")
+        end
+        if user_config.version_selection.max_versions_shown ~= nil then
+            if type(user_config.version_selection.max_versions_shown) ~= "number" then
+                table.insert(errors, "version_selection.max_versions_shown must be a number")
+            elseif user_config.version_selection.max_versions_shown < 1 or user_config.version_selection.max_versions_shown > 100 then
+                table.insert(errors, "version_selection.max_versions_shown must be between 1 and 100")
+            end
+        end
+        if user_config.version_selection.languages then
+            local valid_languages = {javascript = true, dotnet = true, go = true}
+            for lang, enabled in pairs(user_config.version_selection.languages) do
+                if not valid_languages[lang] then
+                    table.insert(errors, string.format("Invalid language in version_selection.languages: %s", lang))
+                elseif type(enabled) ~= "boolean" then
+                    table.insert(errors, string.format("version_selection.languages.%s must be a boolean", lang))
+                end
+            end
+        end
+    end
+
     if user_config.search_batch_size ~= nil then
         if type(user_config.search_batch_size) ~= "number" then
             table.insert(errors, "search_batch_size must be a number")
@@ -320,6 +357,42 @@ end
 
 M.clear_cache = function()
     detection_cache = { cwd = nil, timestamp = nil, ttl = 5000 }
+end
+
+--- Check if version selection is enabled for a language
+-- @param language string: Language name (javascript, dotnet, go)
+-- @return boolean: true if version selection is enabled
+function M.is_version_selection_enabled(language)
+    local version_config = config.version_selection
+    if not version_config or not version_config.enabled then
+        return false
+    end
+    
+    if not language then
+        language = M.detect_language()
+    end
+    
+    if not language then
+        return false
+    end
+    
+    local lang_settings = version_config.languages
+    if lang_settings and lang_settings[language] ~= nil then
+        return lang_settings[language]
+    end
+    
+    return false
+end
+
+--- Get version selection configuration
+-- @return table: version selection config
+function M.get_version_selection_config()
+    return vim.deepcopy(config.version_selection or {
+        enabled = false,
+        languages = {},
+        include_prerelease = false,
+        max_versions_shown = 20,
+    })
 end
 
 return M

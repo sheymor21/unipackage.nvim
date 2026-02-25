@@ -1,8 +1,8 @@
 local M = {}
 
 -- Configuration
-local MAX_RESPONSE_SIZE = 1024 * 1024 -- 1MB max response size
-local DEFAULT_TIMEOUT = 10000 -- 10 seconds
+local MAX_RESPONSE_SIZE = 10 * 1024 * 1024 -- 10MB max response size (needed for packages with many versions like React)
+local DEFAULT_TIMEOUT = 15000 -- 15 seconds
 
 --- Safe JSON parsing with size limits
 -- @param content string: JSON content to parse

@@ -5,54 +5,42 @@ local modules = require("unipackage.core.modules")
 local actions = require("unipackage.core.actions")
 local error_handler = require("unipackage.core.error")
 local terminal = require("unipackage.core.terminal")
+local version_ui = require("unipackage.core.version_ui")
 
--- UI Helper functions
+-- =============================================================================
+-- NOTIFICATION UTILITIES
+-- =============================================================================
 
---- Show notification with consistent formatting
--- @param message string: Message to display
--- @param level number: vim.log.levels value
--- @param opts table|nil: Additional options
-local function notify(message, level, opts)
-    opts = opts or {}
-    local notify_opts = {}
-    
-    if opts.replace then
-        notify_opts.replace = opts.replace
-    end
-    
-    -- Always set a timeout to ensure notifications don't persist indefinitely
-    notify_opts.timeout = opts.timeout or 3000
-    
-    vim.notify(message, level, notify_opts)
-end
-
--- Store notification IDs for snacks notifier
 local notification_ids = {}
 local notification_counter = 0
 
+--- Show notification with consistent formatting
+local function notify(message, level, opts)
+    opts = opts or {}
+    vim.notify(message, level, {
+        replace = opts.replace,
+        timeout = opts.timeout or 3000,
+    })
+end
+
 --- Check if snacks notifier is active
--- @return boolean
 local function is_snacks_notifier()
     local ok, snacks = pcall(require, "snacks.notifier")
     return ok and snacks ~= nil
 end
 
 --- Show loading notification
--- @param message string: Loading message
--- @return number|nil: Notification ID or nil
 local function show_loading(message)
     notification_counter = notification_counter + 1
     local notif_id = notification_counter
     
     if is_snacks_notifier() then
-        -- snacks notifier - show brief notification
         vim.notify(message, vim.log.levels.INFO, {
             title = "Package Search",
             timeout = 3000,
         })
         return nil
     else
-        -- nvim-notify - show persistent notification
         local handle = vim.notify(message, vim.log.levels.INFO, {
             title = "Package Search",
             timeout = false,
@@ -63,7 +51,6 @@ local function show_loading(message)
 end
 
 --- Clear loading notification
--- @param notif_id number|nil: Notification ID
 local function clear_loading(notif_id)
     if not notif_id then
         return
@@ -74,7 +61,6 @@ local function clear_loading(notif_id)
         return
     end
     
-    -- Replace with completion message
     vim.notify("✓ Search complete", vim.log.levels.INFO, { 
         replace = handle,
         timeout = 2000,
@@ -84,9 +70,10 @@ local function clear_loading(notif_id)
     notification_ids[notif_id] = nil
 end
 
---- Get manager module with error handling
--- @param manager string: Manager name
--- @return table|nil: Manager module or nil
+-- =============================================================================
+-- MANAGER UTILITIES
+-- =============================================================================
+
 local function get_manager_module(manager)
     local module = modules.load(manager)
     if not module then
@@ -95,9 +82,6 @@ local function get_manager_module(manager)
     return module
 end
 
---- Get manager or show error
--- @param manager string|nil: Manager name or nil to detect
--- @return string|nil: Manager name or nil
 local function get_manager(manager)
     if manager then
         return manager
@@ -111,9 +95,6 @@ local function get_manager(manager)
     return manager
 end
 
---- Create standard input dialog options
--- @param prompt string: Prompt text
--- @return table: Input options
 local function create_input_opts(prompt)
     return {
         prompt = prompt,
@@ -127,12 +108,10 @@ local function create_input_opts(prompt)
     }
 end
 
--- Dotnet-specific functions
+-- =============================================================================
+-- DOTNET-SPECIFIC FUNCTIONS
+-- =============================================================================
 
---- Select project for dotnet operations
--- @param module table: Dotnet module
--- @param operation string: Operation name for prompt
--- @param callback function: Callback(project|nil)
 function M.select_dotnet_project(module, operation, callback)
     local projects = module.get_projects()
 
@@ -171,9 +150,6 @@ function M.select_dotnet_project(module, operation, callback)
     end)
 end
 
---- Handle dotnet direct install
--- @param input string: User input
--- @param project string: Selected project
 local function handle_dotnet_direct_install(input, project)
     local package_id, version = input:match("^([^@]+)@?(.*)$")
     version = version ~= "" and version or nil
@@ -191,9 +167,6 @@ local function handle_dotnet_direct_install(input, project)
     notify("Installing " .. package_id .. " to " .. project, vim.log.levels.INFO)
 end
 
---- Search NuGet and install
--- @param query string: Search query
--- @param project string: Selected project
 function M.search_and_install_dotnet(query, project)
     local nuget_search = require("unipackage.utils.nuget_search")
     local framework = nuget_search.get_project_framework(project)
@@ -228,27 +201,45 @@ function M.search_and_install_dotnet(query, project)
 
             local selected_pkg = results[idx]
 
-            vim.ui.select({"[Y] Yes", "[N] No"}, {
-                prompt = "[+] Install " .. selected_pkg.id .. " to " .. project .. "?",
-            }, function(choice)
-                if choice == "[Y] Yes" then
-                    terminal.run("dotnet add " .. project .. " package " .. selected_pkg.id)
-                    notify("Installing " .. selected_pkg.id .. " to " .. project, vim.log.levels.INFO)
-                else
-                    notify("Installation cancelled", vim.log.levels.WARN)
-                end
-            end)
+            if config.is_version_selection_enabled("dotnet") then
+                version_ui.select_nuget_version(selected_pkg.id, project, function(version)
+                    if not version then
+                        notify("Installation cancelled", vim.log.levels.WARN)
+                        return
+                    end
+
+                    local cmd = "dotnet add " .. project .. " package " .. selected_pkg.id .. " --version " .. version
+                    vim.ui.select({"[Y] Yes", "[N] No"}, {
+                        prompt = "[+] Install " .. selected_pkg.id .. "@" .. version .. " to " .. project .. "?",
+                    }, function(choice)
+                        if choice == "[Y] Yes" then
+                            terminal.run(cmd)
+                            notify("Installing " .. selected_pkg.id .. "@" .. version .. " to " .. project, vim.log.levels.INFO)
+                        else
+                            notify("Installation cancelled", vim.log.levels.WARN)
+                        end
+                    end)
+                end)
+            else
+                vim.ui.select({"[Y] Yes", "[N] No"}, {
+                    prompt = "[+] Install " .. selected_pkg.id .. " to " .. project .. "?",
+                }, function(choice)
+                    if choice == "[Y] Yes" then
+                        terminal.run("dotnet add " .. project .. " package " .. selected_pkg.id)
+                        notify("Installing " .. selected_pkg.id .. " to " .. project, vim.log.levels.INFO)
+                    else
+                        notify("Installation cancelled", vim.log.levels.WARN)
+                    end
+                end)
+            end
         end)
     end)
 end
 
--- Search functions
+-- =============================================================================
+-- SEARCH FUNCTIONS
+-- =============================================================================
 
---- Show paginated search results
--- @param query string: Search query
--- @param results table: All search results
--- @param batch_size number: Items per page
--- @param manager string: Package manager
 local function show_paginated_results(query, results, batch_size, manager)
     local function show_page(start_idx)
         local end_idx = math.min(start_idx + batch_size - 1, #results)
@@ -296,26 +287,38 @@ local function show_paginated_results(query, results, batch_size, manager)
 
             local actual_idx = has_previous and (idx - 1) or idx
             local selected_pkg = current_batch[actual_idx]
-            local full_pkg = selected_pkg.name .. "@latest"
 
-            vim.ui.select({"[Y] Yes", "[N] No"}, {
-                prompt = "[+] Install " .. full_pkg .. "?",
-            }, function(choice)
-                if choice == "[Y] Yes" then
-                    actions.install_packages({full_pkg}, manager)
-                else
-                    notify("Installation cancelled", vim.log.levels.WARN)
-                end
-            end)
+            if config.is_version_selection_enabled("javascript") then
+                version_ui.select_npm_version(selected_pkg.name, manager, function(version)
+                    local full_pkg = selected_pkg.name .. "@" .. version
+                    vim.ui.select({"[Y] Yes", "[N] No"}, {
+                        prompt = "[+] Install " .. full_pkg .. "?",
+                    }, function(choice)
+                        if choice == "[Y] Yes" then
+                            actions.install_packages({full_pkg}, manager)
+                        else
+                            notify("Installation cancelled", vim.log.levels.WARN)
+                        end
+                    end)
+                end)
+            else
+                local full_pkg = selected_pkg.name .. "@latest"
+                vim.ui.select({"[Y] Yes", "[N] No"}, {
+                    prompt = "[+] Install " .. full_pkg .. "?",
+                }, function(choice)
+                    if choice == "[Y] Yes" then
+                        actions.install_packages({full_pkg}, manager)
+                    else
+                        notify("Installation cancelled", vim.log.levels.WARN)
+                    end
+                end)
+            end
         end)
     end
 
     show_page(1)
 end
 
---- Search npm registry with lazy loading
--- @param query string: Search query
--- @param manager string: Package manager
 function M.search_and_install(query, manager)
     local npm_search = require("unipackage.utils.npm_search")
     local batch_size = config.get("search_batch_size") or 20
@@ -339,11 +342,10 @@ function M.search_and_install(query, manager)
     end)
 end
 
--- Main dialogs
+-- =============================================================================
+-- INSTALLATION DIALOGS
+-- =============================================================================
 
---- Handle direct package install
--- @param input string: User input
--- @param manager string: Package manager
 local function handle_direct_install(input, manager)
     local packages = {}
     for pkg in input:gmatch("[^%s]+") do
@@ -376,8 +378,6 @@ local function handle_direct_install(input, manager)
     end
 end
 
---- Package installation dialog
--- @param manager string|nil: Package manager
 function M.install_packages_dialog(manager)
     manager = get_manager(manager)
     if not manager then
@@ -391,9 +391,8 @@ function M.install_packages_dialog(manager)
 
     local detected = config.get_detected_managers()
     local project_info = "[i] Detected: " .. table.concat(detected, ", ") ..
-                        "\n[*] Using: " .. manager:upper() .. "\n\n"
+                        " | [*] Using: " .. manager:upper() .. " | "
 
-    -- Handle dotnet specially
     if manager == "dotnet" then
         M.select_dotnet_project(module, "install", function(project)
             if not project then
@@ -419,7 +418,6 @@ function M.install_packages_dialog(manager)
         return
     end
 
-    -- JavaScript and Go managers
     vim.ui.input(create_input_opts(project_info .. "[+] Install package(s) (" .. manager:upper() .. ") [type to search]:"),
         function(input)
             if not input or input == "" then
@@ -438,9 +436,10 @@ function M.install_packages_dialog(manager)
         end)
 end
 
---- Parse dotnet packages from JSON output
--- @param output string: JSON output from dotnet list
--- @return table: Array of package IDs
+-- =============================================================================
+-- UNINSTALLATION DIALOGS
+-- =============================================================================
+
 local function parse_dotnet_packages(output)
     local packages = {}
     local ok, json_data = pcall(vim.fn.json_decode, output)
@@ -466,8 +465,6 @@ local function parse_dotnet_packages(output)
     return packages
 end
 
---- Handle dotnet uninstall
--- @param project string: Selected project
 local function handle_dotnet_uninstall(project)
     local handle = io.popen("dotnet list " .. project .. " package --format json 2>/dev/null")
     if not handle then
@@ -507,8 +504,6 @@ local function handle_dotnet_uninstall(project)
     end)
 end
 
---- Package uninstallation dialog
--- @param manager string|nil: Package manager
 function M.uninstall_packages_dialog(manager)
     manager = get_manager(manager)
     if not manager then
@@ -559,9 +554,10 @@ function M.uninstall_packages_dialog(manager)
     end)
 end
 
---- Create menu options based on manager
--- @param manager string: Package manager
--- @return table: Menu options
+-- =============================================================================
+-- MENU SYSTEM
+-- =============================================================================
+
 local function create_menu_options(manager)
     local base_options = {
         {
@@ -618,8 +614,6 @@ local function create_menu_options(manager)
     return base_options
 end
 
---- Unified package management menu
--- @param manager string|nil: Package manager
 function M.package_menu(manager)
     manager = get_manager(manager)
     if not manager then
@@ -628,7 +622,7 @@ function M.package_menu(manager)
 
     local detected = config.get_detected_managers()
     local project_info = "[i] Detected: " .. table.concat(detected, ", ") ..
-                        "\n[*] Using: " .. manager:upper() .. "\n\n"
+                        " | [*] Using: " .. manager:upper() .. " | "
 
     local options = create_menu_options(manager)
     local option_names = {}
@@ -653,8 +647,6 @@ function M.package_menu(manager)
     end)
 end
 
---- Add project reference dialog for dotnet
--- @param manager string|nil: Package manager
 function M.add_reference_dialog(manager)
     manager = get_manager(manager)
     if not manager then
