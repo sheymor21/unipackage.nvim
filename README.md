@@ -15,6 +15,7 @@ A unified package management plugin for Neovim supporting multiple languages and
 - ⚙️ **Configurable**: User-defined priority, fallback behavior, and search batch size
 - 🖥️ **Interactive UI**: Native Neovim UI with fuzzy finding and loading indicators
 - 💾 **Intelligent Caching**: In-memory LRU cache with size limits and persistence
+- 🏷️ **Version Selection**: Select specific package versions (major → specific) with per-language configuration
 
 ## Supported Package Managers
 
@@ -94,6 +95,18 @@ require("unipackage").setup({
     -- Fallback behavior
     fallback_to_any = true,   -- If no lock file found, use any available manager
     warn_on_fallback = true,  -- Show warning when using fallback
+
+    -- Version selection configuration
+    version_selection = {
+        enabled = false,                    -- Enable version selection (disabled by default)
+        languages = {                       -- Per-language control
+            javascript = true,              -- Enable for JavaScript/TypeScript
+            dotnet = true,                  -- Enable for .NET
+            go = false,                     -- Disabled for Go (uses go.mod)
+        },
+        include_prerelease = false,         -- Include pre-release versions (alpha, beta, rc)
+        max_versions_shown = 20,            -- Maximum versions to show in expanded view
+    }
 }
 ```
 
@@ -124,7 +137,12 @@ require("unipackage").setup({
 > Search results appear (20 items at a time)...
 > Navigate: ⬅️ Previous batch / 📥 Load more...
 > Select: react @ 18.2.0
-> Installs: npm install react@latest
+> With version_selection enabled:
+>   Select major version: 18.x (Latest: 18.2.0, 45 versions)
+>   Select specific version: 18.1.0
+>   Installs: npm install react@18.1.0
+> Without version_selection:
+>   Installs: npm install react@latest
 
 " Direct install with version
 :UniPackageInstall
@@ -155,7 +173,12 @@ require("unipackage").setup({
 > Type: Newtonsoft
 > Search results (filtered for net8.0)...
 > Select: Newtonsoft.Json
-> Installs: dotnet add WebApi.csproj package Newtonsoft.Json
+> With version_selection enabled:
+>   Select major version: 13.x (Latest: 13.0.3, 12 versions)
+>   Select specific version: 13.0.1
+>   Installs: dotnet add WebApi.csproj package Newtonsoft.Json --version 13.0.1
+> Without version_selection:
+>   Installs: dotnet add WebApi.csproj package Newtonsoft.Json
 
 " Direct install
 :UniPackageInstall
@@ -221,6 +244,23 @@ Run performance tests:
 ```lua
 require("unipackage").setup({
     package_managers = { "bun", "go", "dotnet", "pnpm", "npm", "yarn" }
+})
+```
+
+### Enable Version Selection
+
+```lua
+require("unipackage").setup({
+    version_selection = {
+        enabled = true,
+        languages = {
+            javascript = true,  -- Enable for JS/TS
+            dotnet = true,      -- Enable for .NET
+            go = false,         -- Keep disabled for Go
+        },
+        include_prerelease = false,  -- Exclude alpha/beta/rc versions
+        max_versions_shown = 20,     -- Show up to 20 versions per major
+    }
 })
 ```
 

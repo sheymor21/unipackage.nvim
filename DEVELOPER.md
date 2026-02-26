@@ -35,6 +35,7 @@ lua/unipackage/
 │   ├── modules.lua         -- Shared module loader
 │   ├── actions.lua         -- Package operations
 │   ├── ui.lua              -- User interface
+│   ├── version_ui.lua      -- Version selection UI
 │   ├── terminal.lua        -- Terminal abstraction
 │   └── error.lua           -- Error handling utilities
 ├── languages/
@@ -51,7 +52,10 @@ lua/unipackage/
     ├── cache.lua          -- Optimized LRU cache
     ├── http.lua           -- HTTP utilities
     ├── npm_search.lua     -- NPM registry search
-    └── nuget_search.lua   -- NuGet registry search
+    ├── nuget_search.lua   -- NuGet registry search
+    ├── npm_versions.lua   -- NPM version fetching
+    ├── nuget_versions.lua -- NuGet version fetching
+    └── version_utils.lua  -- Shared version utilities
 ```
 
 ## Interfaces
@@ -162,13 +166,121 @@ local validation_rules = {
     search_batch_size = "number",
     fallback_to_any = "boolean",
     warn_on_fallback = "boolean",
+    version_selection = "table",
     
     -- Value validation
     package_manager_names = {"bun", "go", "dotnet", "npm", "pnpm", "yarn"},
     search_batch_size_range = function(n) return n >= 1 and n <= 100 end,
-    non_empty_arrays = function(arr) return #arr > 0 end
+    non_empty_arrays = function(arr) return #arr > 0 end,
+    version_selection_languages = {"javascript", "dotnet", "go"}
 }
 ```
+
+## Version Selection System
+
+### Overview
+The version selection system allows users to choose specific package versions through a two-step UI:
+1. Select major version (e.g., "18.x")
+2. Select specific version (e.g., "18.2.0")
+
+### Architecture
+
+```
+User selects package from search
+        ↓
+Check: config.is_version_selection_enabled(language)
+        ↓
+    ┌─────────────┐
+    │   Enabled   │────→ Fetch versions from registry
+    └─────────────┘            ↓
+    ┌─────────────┐     Group by major version
+    │   Disabled  │────→ Install @latest
+    └─────────────┘
+                               ↓
+                        Show major version selection
+                               ↓
+                        Show specific version selection
+                               ↓
+                        Install selected version
+```
+
+### Implementation
+
+#### version_ui.lua
+Central UI module for version selection:
+
+```lua
+-- NPM version selection (JavaScript packages)
+function M.select_npm_version(package_name, manager, on_complete)
+    -- Shows notification: "[~] Searching versions for: {package}"
+    -- Fetches versions via npm_versions module
+    -- Presents two-step selection UI
+    -- Calls on_complete(version) or on_complete("latest") on cancel
+end
+
+-- NuGet version selection (.NET packages)
+function M.select_nuget_version(package_id, project, on_complete)
+    -- Similar flow for NuGet packages
+end
+```
+
+#### version_utils.lua
+Shared utilities for version operations:
+
+```lua
+-- Parse semantic version
+function M.parse_semver(version) → {major, minor, patch, prerelease}
+
+-- Compare two versions
+function M.compare_versions(v1, v2) → -1, 0, 1
+
+-- Group versions by major
+function M.group_by_major(versions) → {major: {versions, latest}}
+
+-- Filter pre-releases
+function M.filter_prereleases(versions, include_prerelease) → filtered_versions
+
+-- Format for display
+function M.format_major_group(major, group) → "18.x (Latest: 18.2.0, 45 versions)"
+function M.format_version(version) → "18.2.0" or "18.2.0-beta.1"
+```
+
+#### npm_versions.lua / nuget_versions.lua
+Registry-specific implementations:
+
+```lua
+-- Fetch and cache versions
+function M.get_versions_by_major_async(package, include_prerelease, callback)
+    -- Returns: {major_version: {versions, latest}}
+end
+
+function M.get_versions_for_major_async(package, major, include_prerelease, max_results, callback)
+    -- Returns: [version_strings]
+end
+```
+
+### Configuration
+
+```lua
+version_selection = {
+    enabled = false,                    -- Master switch
+    languages = {                       -- Per-language control
+        javascript = true,              -- Enable for npm/yarn/pnpm/bun
+        dotnet = true,                  -- Enable for NuGet
+        go = false,                     -- Disabled (uses go.mod)
+    },
+    include_prerelease = false,         -- Exclude alpha/beta/rc
+    max_versions_shown = 20,            -- Limit for expanded view
+}
+```
+
+### Adding Version Selection to New Languages
+
+1. Create `{language}_versions.lua` in `utils/`
+2. Implement registry-specific fetching
+3. Use `version_utils` for shared operations
+4. Add language to `version_selection.languages` in config
+5. Call version selection from UI module
 
 ## Performance Considerations
 
@@ -194,8 +306,9 @@ local validation_rules = {
 
 - **LRU Cache**: O(1) operations with index tracking
 - **Memory Limits**: 10MB max with 100 entry limit
-- **JSON Limits**: 1MB max response size
-- **TTL**: 30 minutes for search results
+- **JSON Limits**: 10MB max response size (increased for packages with many versions)
+- **TTL**: 30 minutes for search results and version lists
+- **Version Cache**: Separate caching for npm/nuget version lists
 
 ## Error Handling
 
@@ -304,3 +417,8 @@ Potential areas for expansion:
 - **Dependency trees**: Visual dependency relationships
 - **Version management**: Package upgrade and downgrade operations
 - **Performance modes**: Parallel operations, background prefetching
+- **Version Selection Extensions**:
+  - Version range selection (e.g., ^18.0.0, ~18.2.0)
+  - Changelog integration
+  - Security vulnerability checking
+  - Compatibility matrix display

@@ -11,19 +11,41 @@ UniPackage is a modular Neovim plugin that provides unified package management a
 ```
 unipackage/
 ├── README.md               # User documentation (installation, usage, configuration)
-├── ARCHITECTURE.md        # This file - technical documentation
-├── CONTRIBUTING.md          # Development guidelines (optional)
-├── LICENSE                  # MIT license
-├── lua/                    # Main source code
-│   ├── init.lua           # Main entry point, setup function, vim commands
-│   ├── config.lua          # Configuration system, validation, priority resolution
-│   ├── utils.lua           # Package manager detection, file utilities
-│   ├── actions.lua          # Dynamic package manager operations, abstraction layer
-│   ├── ui.lua              # Interactive dialogs, menu system
-│   ├── bun.lua             # Bun package manager integration
-│   ├── npm.lua             # NPM package manager integration
-│   ├── pnpm.lua            # PNPM package manager integration
-│   └── yarn.lua            # Yarn package manager integration
+├── ARCHITECTURE.md         # This file - technical documentation
+├── DEVELOPER.md            # Developer guidelines and API documentation
+├── INSTALL.md              # Installation instructions
+├── LICENSE                 # MIT license
+├── lua/unipackage/         # Main source code
+│   ├── init.lua            # Main entry point
+│   ├── health.lua          # Health check module
+│   ├── core/               # Core functionality
+│   │   ├── init.lua        # Module exports and commands
+│   │   ├── config.lua      # Configuration system
+│   │   ├── constants.lua   # Centralized constants
+│   │   ├── modules.lua     # Module loader
+│   │   ├── actions.lua     # Package operations
+│   │   ├── ui.lua          # User interface
+│   │   ├── version_ui.lua  # Version selection UI
+│   │   ├── terminal.lua    # Terminal abstraction
+│   │   └── error.lua       # Error handling
+│   ├── languages/          # Language-specific implementations
+│   │   ├── go/
+│   │   │   └── go.lua      # Go module support
+│   │   ├── dotnet/
+│   │   │   └── dotnet.lua  # .NET project support
+│   │   └── javascript/     # JavaScript package managers
+│   │       ├── bun.lua     # Bun support
+│   │       ├── npm.lua     # NPM support
+│   │       ├── pnpm.lua    # PNPM support
+│   │       └── yarn.lua    # Yarn support
+│   └── utils/              # Utility modules
+│       ├── cache.lua       # LRU cache implementation
+│       ├── http.lua        # HTTP client
+│       ├── npm_search.lua  # NPM registry search
+│       ├── nuget_search.lua # NuGet registry search
+│       ├── npm_versions.lua # NPM version fetching
+│       ├── nuget_versions.lua # NuGet version fetching
+│       └── version_utils.lua # Shared version utilities
 └── .git/                   # Version control
 ```
 
@@ -62,7 +84,17 @@ local default_config = {
     package_managers = {"bun", "go", "dotnet", "pnpm", "npm", "yarn"},
     search_batch_size = 20,  -- Number of items per batch in search results
     fallback_to_any = true,
-    warn_on_fallback = true
+    warn_on_fallback = true,
+    version_selection = {
+        enabled = false,                    -- Disabled by default
+        languages = {                       -- Per-language control
+            javascript = true,
+            dotnet = true,
+            go = false,
+        },
+        include_prerelease = false,         -- Exclude pre-release versions
+        max_versions_shown = 20,            -- Max versions in expanded view
+    }
 }
 ```
 
@@ -162,6 +194,32 @@ end
 - **Navigation**: Previous/Next batch options for large result sets
 - **Context awareness**: Shows detected managers and preferred choice
 - **Error messages**: User-friendly feedback for all operations
+
+### version_ui.lua - Version Selection UI
+- **Two-step selection**: Major version → Specific version
+- **NPM support**: `select_npm_version()` for JavaScript packages
+- **NuGet support**: `select_nuget_version()` for .NET packages
+- **Shared utilities**: Notification helpers, loading indicators
+- **Configurable**: Respects `version_selection` configuration
+
+### Version Utilities (utils/)
+
+#### version_utils.lua
+- **Semver parsing**: Parse and validate semantic versions
+- **Version comparison**: Compare versions for sorting
+- **Grouping**: Group versions by major version
+- **Filtering**: Filter pre-release versions
+- **Formatting**: Format versions for display
+
+#### npm_versions.lua
+- **Registry fetching**: Fetch versions from npm registry
+- **Caching**: Cache version lists (30 min TTL)
+- **API**: `get_versions_by_major_async()`, `get_versions_for_major_async()`
+
+#### nuget_versions.lua
+- **Registry fetching**: Fetch versions from NuGet flat container API
+- **Caching**: Cache version lists (30 min TTL)
+- **API**: `get_versions_by_major_async()`, `get_versions_for_major_async()`
 
 ### Package Manager Modules
 
