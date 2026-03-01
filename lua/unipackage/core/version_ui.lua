@@ -81,10 +81,10 @@ local function sort_major_versions(groups)
 end
 
 --- Show major version selection dialog
-local function show_major_selection(package_name, major_list, on_select)
+local function show_major_selection(package_name, major_list, version_api, on_select)
     local options = {}
     for _, item in ipairs(major_list) do
-        table.insert(options, item.group.format_major(tostring(item.major), item.group))
+        table.insert(options, version_api.format_major(tostring(item.major), item.group))
     end
 
     vim.ui.select(options, {
@@ -100,10 +100,10 @@ local function show_major_selection(package_name, major_list, on_select)
 end
 
 --- Show specific version selection dialog
-local function show_version_selection(package_name, versions, on_select)
+local function show_version_selection(package_name, versions, version_api, on_select)
     local options = {}
     for _, version in ipairs(versions) do
-        table.insert(options, version.format(version))
+        table.insert(options, version_api.format(version))
     end
 
     vim.ui.select(options, {
@@ -144,7 +144,7 @@ local function select_version_flow(package_name, version_api, on_complete)
 
         local major_list = sort_major_versions(groups)
         
-        show_major_selection(package_name, major_list, function(selected_major)
+        show_major_selection(package_name, major_list, version_api, function(selected_major)
             if not selected_major then
                 on_complete(nil)
                 return
@@ -161,7 +161,7 @@ local function select_version_flow(package_name, version_api, on_complete)
                     return
                 end
 
-                show_version_selection(package_name, versions, function(selected_version)
+                show_version_selection(package_name, versions, version_api, function(selected_version)
                     on_complete(selected_version)
                 end)
             end)
