@@ -28,7 +28,7 @@ local config = vim.deepcopy(default_config)
 local languages = {
     dotnet = {
         managers = {"dotnet"},
-        files = {"*.sln", "*.csproj", "*.fsproj", "*.vbproj"}
+        files = {"*.sln", "*.csproj", "*.fsproj", "*.vbproj", "*.slnx"}
     },
     go = {
         managers = {"go"},
@@ -43,7 +43,7 @@ local languages = {
 -- Lock file detection patterns
 local detection_patterns = {
     bun = {"bun.lock", "bun.lockb"},
-    dotnet = {"*.sln", "*.csproj", "*.fsproj", "*.vbproj"},
+    dotnet = {"*.sln", "*.csproj", "*.fsproj", "*.vbproj", "*.slnx"},
     go = {"go.mod", "go.sum", "go.work"},
     npm = {"package-lock.json"},
     pnpm = {"pnpm-lock.yaml"},
