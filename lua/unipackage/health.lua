@@ -122,6 +122,18 @@ function M.check()
     else
         info("Cache module loaded")
     end
+
+    -- Check Azure Credential Provider for .NET projects
+    vim.health.start("Azure DevOps Support")
+
+    local cred_provider_path = vim.fn.expand("~/.nuget/plugins/netcore/CredentialProvider.Microsoft/CredentialProvider.Microsoft.dll")
+    local has_azure_provider = vim.fn.filereadable(cred_provider_path) == 1
+    if has_azure_provider then
+        report(true, "Azure Artifacts Credential Provider: installed")
+    else
+        warn("Azure Artifacts Credential Provider: not found (optional, for Azure DevOps feeds)")
+        info("Install with: curl -fsSL https://aka.ms/install-artifacts-credprovider.sh | bash")
+    end
 end
 
 return M
