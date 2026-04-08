@@ -172,4 +172,17 @@ vim.api.nvim_create_user_command('UniPackageClearCache', function()
     M.clear_cache()
 end, { desc = "Clear all UniPackage caches" })
 
+vim.api.nvim_create_user_command('UniPackageNugetConfig', function()
+    local nuget_config = require("unipackage.utils.nuget_config")
+    nuget_config.status()
+end, { desc = "Show NuGet configuration status" })
+
+vim.api.nvim_create_user_command('UniPackageNugetDebugSearch', function(opts)
+    local nuget_search = require("unipackage.utils.nuget_search")
+    nuget_search.debug_search(opts.args ~= "" and opts.args or nil)
+end, { 
+    desc = "Debug NuGet search functionality",
+    nargs = "?"
+})
+
 return M

@@ -48,7 +48,9 @@ local function build_curl_command(url, method, headers, body, timeout)
     
     for key, value in pairs(headers) do
         table.insert(cmd, "-H")
-        table.insert(cmd, key .. ": " .. value)
+        -- Properly escape the header value for shell
+        local escaped_value = vim.fn.shellescape(key .. ": " .. value)
+        table.insert(cmd, escaped_value)
     end
     
     -- Add URL
@@ -103,8 +105,16 @@ local function curl_sync(url, method, options)
     -- Build curl command
     local cmd = build_curl_command(url, method, headers, body, timeout)
     
+    -- Debug: print curl command
+    local cmd_str = table.concat(cmd, " ")
+    if headers["Authorization"] then
+        -- Mask the auth token for security
+        local masked_cmd = cmd_str:gsub("(Authorization: Basic )[^'\"]+", "%1[MASKED]")
+        vim.notify("CURL: " .. masked_cmd, vim.log.levels.DEBUG)
+    end
+    
     -- Execute curl command
-    local handle = io.popen(table.concat(cmd, " "))
+    local handle = io.popen(cmd_str)
     if not handle then
         return nil, "Failed to execute curl command"
     end
