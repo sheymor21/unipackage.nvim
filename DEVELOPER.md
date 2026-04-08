@@ -53,6 +53,7 @@ lua/unipackage/
     ├── http.lua           -- HTTP utilities
     ├── npm_search.lua     -- NPM registry search
     ├── nuget_search.lua   -- NuGet registry search
+    ├── nuget_config.lua   -- NuGet config parser (custom sources, auth)
     ├── npm_versions.lua   -- NPM version fetching
     ├── nuget_versions.lua -- NuGet version fetching
     └── version_utils.lua  -- Shared version utilities
@@ -170,6 +171,14 @@ local validation_rules = {
     
     -- Value validation
     package_manager_names = {"bun", "go", "dotnet", "npm", "pnpm", "yarn"},
+    detection_patterns = {
+        bun = {"bun.lock", "bun.lockb"},
+        dotnet = {"*.sln", "*.slnx", "*.csproj", "*.fsproj", "*.vbproj"},
+        go = {"go.mod", "go.sum", "go.work"},
+        npm = {"package-lock.json"},
+        pnpm = {"pnpm-lock.yaml"},
+        yarn = {"yarn.lock", ".yarnrc.yml"},
+    },
     search_batch_size_range = function(n) return n >= 1 and n <= 100 end,
     non_empty_arrays = function(arr) return #arr > 0 end,
     version_selection_languages = {"javascript", "dotnet", "go"}
@@ -350,10 +359,13 @@ end
 
 ```
 Project Directory
-├── bun.lock           → Detect BUN
+├── bun.lock            → Detect BUN
 ├── package-lock.json   → Detect NPM
 ├── pnpm-lock.yaml      → Detect PNPM
-└── yarn.lock           → Detect YARN
+├── yarn.lock           → Detect YARN
+├── go.mod              → Detect GO
+├── .sln/.slnx          → Detect DOTNET
+└── *.csproj            → Detect DOTNET
 
 Lock Files + User Priority + System Availability
 ├── Detection (config.get_detected_managers())
@@ -399,6 +411,120 @@ touch new_manager.lock && nvim -c "require('unipackage').package_menu()"
 touch bun.lock && touch new_manager.lock
 nvim -c "require('unipackage').get_preferred_manager()"
 ```
+
+## NuGet Configuration System
+
+### Overview
+UniPackage provides comprehensive support for custom NuGet package sources through `nuget.config` files.
+
+### nuget_config.lua Module
+
+#### Core Functions
+
+```lua
+-- Find nuget.config in project or parent directories
+function M.find_nuget_config() → path|nil
+
+-- Parse config and return enabled sources
+function M.get_package_sources() → [{name, url, credentials}]
+
+-- Generate auth headers for private feeds
+function M.get_auth_headers(source) → {Authorization = "Basic ..."}
+
+-- Debug helper
+function M.debug() → {config_path, sources, enabled_sources}
+```
+
+#### Configuration Discovery
+
+The module searches for `nuget.config` in this order:
+1. Current working directory
+2. Parent directories (up to git root)
+3. Git repository root
+
+Supported filenames: `nuget.config`, `NuGet.config`, `NuGet.Config`
+
+#### Credential Sources
+
+1. **Environment Variables** (preferred, secure):
+   ```bash
+   UNIPACKAGE_NUGET_<SOURCE>_USERNAME=<username>
+   UNIPACKAGE_NUGET_<SOURCE>_TOKEN=<token>
+   ```
+   
+   Source name normalization:
+   - Remove special characters
+   - Replace with underscores
+   - Convert to uppercase
+   - Example: "My-Feed" → "MY_FEED"
+
+2. **nuget.config file** (fallback):
+   ```xml
+   <packageSourceCredentials>
+     <MyFeed>
+       <add key="Username" value="user" />
+       <add key="ClearTextPassword" value="token" />
+     </MyFeed>
+   </packageSourceCredentials>
+   ```
+
+#### Authentication Flow
+
+```
+Search Request
+    ↓
+Get package sources from nuget.config
+    ↓
+Check environment variables for credentials
+    ↓
+Generate Basic Auth header (if credentials found)
+    ↓
+Query each source with authentication
+    ↓
+Merge and deduplicate results
+    ↓
+Return sorted by popularity
+```
+
+#### Search Implementation
+
+The `nuget_search.lua` module handles multi-source searches:
+
+```lua
+function M.search_packages_async(query, framework, limit, callback)
+    local sources = M.get_package_sources()  -- From nuget_config
+    
+    for _, source in ipairs(sources) do
+        -- Get search URL from service index
+        M.get_search_service_url(source, function(search_url)
+            -- Add auth headers if credentials exist
+            local headers = source.credentials 
+                and nuget_config.get_auth_headers(source)
+            
+            http.get(search_url, function(success, data)
+                -- Parse and collect results
+            end, {headers = headers})
+        end)
+    end
+    
+    -- Merge results from all sources
+    callback(merged_results)
+end
+```
+
+### .slnx Support
+
+UniPackage now supports the new `.slnx` solution file format (XML-based):
+
+```lua
+-- Detection patterns in config.lua
+dotnet = {
+    managers = {"dotnet"},
+    files = {"*.sln", "*.slnx", "*.csproj", "*.fsproj", "*.vbproj"}
+}
+```
+
+The `.slnx` format is treated identically to `.sln` for detection purposes.
 
 ## Extensibility
 

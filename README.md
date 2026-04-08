@@ -23,7 +23,7 @@ A unified package management plugin for Neovim supporting multiple languages and
 |----------|----------|----------------|
 | JavaScript/TypeScript | bun, pnpm, npm, yarn | `package.json`, lock files |
 | Go | go | `go.mod`, `go.sum`, `go.work` |
-| .NET | dotnet | `.sln`, `.csproj`, `.fsproj`, `.vbproj` |
+| .NET | dotnet | `.sln`, `.slnx`, `.csproj`, `.fsproj`, `.vbproj` |
 
 ## Installation
 
@@ -120,7 +120,9 @@ require("unipackage").setup({
 | `:UniPackageList` | List installed packages |
 | `:UniPackageSetup` | Configure plugin settings |
 | `:UniPackageDebug` | Show detection debug information |
+| `:UniPackageNugetConfig` | Show NuGet configuration status |
 | `:UniPackageClearCache` | Clear all caches |
+| `:UniPackageNugetDebugSearch` | Debug NuGet search functionality |
 | `:checkhealth unipackage` | Run health checks |
 
 ## Usage Examples
@@ -231,10 +233,12 @@ Run performance tests:
 
 ### .NET
 
-- **Solution Support**: Multi-project solution handling
+- **Solution Support**: Multi-project solution handling (`.sln` and `.slnx`)
 - **Project Selection**: Select specific project for operations
 - **Framework Filtering**: Packages filtered by TargetFramework
 - **NuGet Search**: Search nuget.org with framework compatibility
+- **Custom Package Sources**: Full support for `nuget.config` custom feeds
+- **Environment Credentials**: Secure authentication via environment variables
 - **Async Operations**: Non-blocking NuGet searches
 
 ## Configuration Examples
@@ -332,6 +336,102 @@ Detected: package.json → Language: javascript → Managers: bun, pnpm, npm, ya
 - **Framework Filter**: Based on project's TargetFramework
 - **Results**: Package ID, version, downloads, description
 - **Cache**: 30 minutes per framework
+
+### Custom NuGet Sources
+
+UniPackage automatically reads `nuget.config` to support custom package sources (Azure Artifacts, private feeds, etc.):
+
+**Example nuget.config:**
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear/>
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+    <add key="MyFeed" value="https://pkgs.dev.azure.com/org/_packaging/feed/nuget/v3/index.json" />
+  </packageSources>
+</configuration>
+```
+
+**Features:**
+- Automatic discovery of `nuget.config` in project and parent directories
+- Support for multiple package sources
+- Results merged and sorted by popularity
+- Source name displayed in search results for non-nuget.org feeds
+
+### Azure DevOps Authentication (Recommended)
+
+For Azure DevOps feeds, the **Azure Artifacts Credential Provider** is the recommended approach. It automatically handles authentication using your Azure CLI login session.
+
+**1. Install Azure Artifacts Credential Provider:**
+```bash
+# Install the credential provider
+curl -fsSL https://aka.ms/install-artifacts-credprovider.sh | bash
+
+# Or on Windows PowerShell:
+# iex "& { $(irm https://aka.ms/install-artifacts-credprovider.ps1) }"
+```
+
+**2. Log into Azure:**
+```bash
+az login
+```
+
+**3. Configure your nuget.config** (no credentials needed):
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear/>
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+    <add key="MyAzureFeed" value="https://pkgs.dev.azure.com/your-org/_packaging/your-feed/nuget/v3/index.json" />
+  </packageSources>
+</configuration>
+```
+
+**The plugin will automatically detect and use the credential provider for Azure DevOps feeds!**
+
+### Secure Authentication (Alternative)
+
+If you prefer not to use the credential provider, you can use environment variables:
+
+**Environment Variable Format:**
+```bash
+UNIPACKAGE_NUGET_<SOURCE_NAME>_USERNAME=<username>
+UNIPACKAGE_NUGET_<SOURCE_NAME>_TOKEN=<token>
+```
+
+**Example:**
+```bash
+# For a source named "MyFeed" in nuget.config
+export UNIPACKAGE_NUGET_MYFEED_USERNAME="PAT"
+export UNIPACKAGE_NUGET_MYFEED_TOKEN="your-azure-devops-pat"
+```
+
+**Authentication Priority:**
+1. Environment variables (highest priority)
+2. Azure Artifacts Credential Provider (for Azure DevOps feeds)
+3. nuget.config file credentials (lowest priority)
+
+### Verifying NuGet Configuration
+
+To verify that your `nuget.config` and credentials are loaded correctly, use:
+
+```vim
+:UniPackageNugetConfig
+```
+
+This will display:
+- ✓ Whether the config file was found and its location
+- List of configured package sources with their URLs
+- 🔐 Authentication status for each source:
+  - `🔐 (env)` = Credentials loaded from environment variables
+  - `🔐 (azure)` = Credentials from Azure Artifacts Credential Provider
+  - `🔐 (config)` = Credentials loaded from `nuget.config` file
+- Azure Credential Provider installation status
+- Status of environment variables (✓ if set, ✗ if missing)
+
+Press `q` or `<Esc>` to close the status window.
 
 ## Troubleshooting
 

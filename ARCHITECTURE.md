@@ -4,7 +4,12 @@ Technical documentation for the UniPackage Neovim plugin architecture, interface
 
 ## Overview
 
-UniPackage is a modular Neovim plugin that provides unified package management across multiple JavaScript package managers (bun, pnpm, npm, yarn). The system uses a consistent interface pattern with dynamic module loading to support extensible package manager integration.
+UniPackage is a modular Neovim plugin that provides unified package management across multiple languages and package managers:
+- **JavaScript/TypeScript**: bun, pnpm, npm, yarn
+- **Go**: go modules
+- **.NET**: dotnet with nuget.org and custom package source support
+
+The system uses a consistent interface pattern with dynamic module loading to support extensible package manager integration.
 
 ## Module Structure
 
@@ -43,6 +48,7 @@ unipackage/
 │       ├── http.lua        # HTTP client
 │       ├── npm_search.lua  # NPM registry search
 │       ├── nuget_search.lua # NuGet registry search
+│       ├── nuget_config.lua # NuGet config parser
 │       ├── npm_versions.lua # NPM version fetching
 │       ├── nuget_versions.lua # NuGet version fetching
 │       └── version_utils.lua # Shared version utilities
@@ -221,6 +227,25 @@ end
 - **Caching**: Cache version lists (30 min TTL)
 - **API**: `get_versions_by_major_async()`, `get_versions_for_major_async()`
 
+#### nuget_config.lua
+- **Config discovery**: Find nuget.config in project and parent directories
+- **Source parsing**: Extract package sources from XML (supports xml2lua or manual parsing)
+- **Credential support**: Read from environment variables or config file
+- **Auth headers**: Generate Basic Auth headers for HTTP requests
+- **Security**: Environment variables take priority over config file credentials
+- **Environment format**: `UNIPACKAGE_NUGET_<SOURCE>_USERNAME` and `UNIPACKAGE_NUGET_<SOURCE>_TOKEN`
+- **Source name normalization**: Special chars → underscores, uppercase (e.g., "My-Feed" → "MY_FEED")
+
+#### nuget_search.lua
+- **Registry fetching**: Fetch search results from NuGet API
+- **Custom sources**: Support for nuget.config custom package sources (Azure Artifacts, private feeds)
+- **Authentication**: Basic auth headers for private feeds via environment variables
+- **Framework filtering**: Filter by target framework
+- **Multi-source merging**: Merge and deduplicate results from multiple sources
+- **Caching**: Cache results with TTL (30 min for search, 24h for service URLs)
+- **Service discovery**: Discover search service from v3/index.json
+- **Result format**: Package ID, version, downloads, description, source name
+
 ### Package Manager Modules
 
 #### bun.lua
@@ -247,15 +272,27 @@ end
 - **Output parsing**: Tree format with version header line
 - **Special handling**: Header filtering, Yarn-specific tree symbols
 
+#### dotnet.lua
+- **Commands**: `dotnet add package`, `dotnet remove package`, `dotnet list package`
+- **Solution files**: `.sln`, `.slnx` (new XML-based solution format)
+- **Project files**: `.csproj`, `.fsproj`, `.vbproj`
+- **Multi-project support**: Solution-level and project-level operations
+- **Framework detection**: Reads TargetFramework from project files
+- **Custom sources**: Full nuget.config support with environment-based auth
+- **Output parsing**: JSON and text format parsing for package lists
+
 ## Data Flow
 
 ### Package Manager Selection
 ```
 Project Directory
-├── bun.lock           → Detect BUN
+├── bun.lock            → Detect BUN
 ├── package-lock.json   → Detect NPM
 ├── pnpm-lock.yaml      → Detect PNPM
-└── yarn.lock           → Detect YARN
+├── yarn.lock           → Detect YARN
+├── go.mod              → Detect GO
+├── .sln/.slnx          → Detect DOTNET
+└── .csproj             → Detect DOTNET
 
 Lock Files + User Priority + System Availability
 ├── Detection (config.get_detected_managers())
