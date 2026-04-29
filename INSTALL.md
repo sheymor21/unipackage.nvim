@@ -8,8 +8,7 @@ Add to your `lua/plugins/unipackage.lua`:
 return {
   "sheymor/unipackage.nvim",
   dependencies = {
-    "akinsho/toggleterm.nvim",
-    "nvim-lua/plenary.nvim",
+    "nvim-lua/plenary.nvim",   -- Required for async HTTP
   },
   config = function()
     require("unipackage").setup()
@@ -24,7 +23,6 @@ require("lazy").setup({
   {
     "sheymor/unipackage.nvim",
     dependencies = { 
-      "akinsho/toggleterm.nvim",
       "nvim-lua/plenary.nvim",
     },
     config = true, -- Uses default setup
@@ -38,7 +36,6 @@ require("lazy").setup({
 {
   "sheymor/unipackage.nvim",
   dependencies = { 
-    "akinsho/toggleterm.nvim",
     "nvim-lua/plenary.nvim",
   },
   config = function()
@@ -59,7 +56,6 @@ require("lazy").setup({
 {
   "sheymor/unipackage.nvim",
   dependencies = { 
-    "akinsho/toggleterm.nvim",
     "nvim-lua/plenary.nvim",
   },
   opts = {
@@ -81,7 +77,6 @@ require("lazy").setup({
 use {
   "sheymor/unipackage.nvim",
   requires = { 
-    "akinsho/toggleterm.nvim",
     "nvim-lua/plenary.nvim",
   },
   config = function()
@@ -93,13 +88,12 @@ use {
 ### vim-plug
 
 ```vim
-Plug 'akinsho/toggleterm.nvim'
 Plug 'nvim-lua/plenary.nvim'
 Plug 'sheymor/unipackage.nvim'
 ```
 
 ```lua
--- In your init.lua
+-- In your init.lua or config
 require("unipackage").setup()
 ```
 
@@ -120,7 +114,7 @@ This will show:
 
 ### Plugin not loading
 
-1. Ensure `toggleterm.nvim` and `plenary.nvim` are installed
+1. Ensure `plenary.nvim` is installed
 2. Check `:checkhealth lazy` for errors
 3. Verify plugin is in lazy lock file: `:Lazy show`
 

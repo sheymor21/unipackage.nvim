@@ -61,7 +61,7 @@ unipackage/
 Each package manager is implemented as a separate module with a consistent interface:
 ```lua
 -- Standard interface contract
-function M.run_command(args)           -- Execute commands via ToggleTerm
+function M.run_command(args)           -- Execute commands via native terminal
 function M.get_installed_packages()     -- Parse package lists and return arrays
 ```
 
@@ -114,17 +114,11 @@ All package manager modules must implement:
 ```lua
 --- Executes package manager commands
 -- @param args table: Command arguments (e.g., {"install", "package"})
--- @return void: Executes command via ToggleTerm
+-- @return void: Executes command via native terminal
 function M.run_command(args)
-    local Terminal = require("toggleterm.terminal").Terminal
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
+    local terminal = require("unipackage.core.terminal")
     local cmd = "manager " .. table.concat(args, " ")
-    runner.cmd = cmd
-    runner:toggle()
+    terminal.run(cmd, { title = "Manager" })
 end
 ```
 
@@ -252,7 +246,7 @@ end
 - **Commands**: `bun install`, `bun remove`, `bun list`
 - **Lock files**: `bun.lock`, `bun.lockb`
 - **Output parsing**: Tree format with package@version lines
-- **Integration**: Uses ToggleTerm for command execution
+- **Integration**: Uses native terminal via `vim.fn.jobstart()`
 
 #### npm.lua
 - **Commands**: `npm install`, `npm uninstall`, `npm list --depth=0`
@@ -300,15 +294,15 @@ Lock Files + User Priority + System Availability
 ├── Resolution (config.get_preferred_manager())
 └── Selection (utils.get_manager_for_project())
 ```
-
 ### Command Execution
+
 ```
 User Action
 ├── UI Dialog (ui.lua)
 ├── Action Function (actions.lua)
 ├── Module Loading (get_manager_module())
 ├── Command Execution (run_command())
-└── Terminal (ToggleTerm)
+└── Terminal (native via vim.fn.jobstart())
 ```
 
 ### Package Listing
@@ -443,9 +437,9 @@ require('unipackage.actions').list_packages(manager)
 - **Lazy loading**: Modules loaded only when needed
 - **Error handling**: Graceful degradation on load failures
 - **Caching**: Configuration cached after first load
-
 ### Command Execution
-- **Terminal reuse**: ToggleTerm instances properly managed
+
+- **Native terminal**: Uses `vim.fn.jobstart()` with floating windows
 - **Async operations**: Non-blocking command execution
 - **Output parsing**: Optimized regex patterns
 
@@ -469,7 +463,9 @@ end
 ### Command Execution Errors
 ```lua
 -- Terminal error handling
-local ok, result = pcall(runner.toggle, runner)
+local ok = pcall(function()
+    terminal.run(cmd, opts)
+end)
 if not ok then
     vim.notify("Failed to execute package manager command", vim.log.levels.ERROR)
 end

@@ -70,17 +70,11 @@ All package manager modules must implement:
 ```lua
 --- Executes package manager commands
 -- @param args table: Command arguments (e.g., {"install", "package"})
--- @return void: Executes command via ToggleTerm
+-- @return void: Executes command via native terminal
 function M.run_command(args)
-    local Terminal = require("toggleterm.terminal").Terminal
-    local runner = Terminal:new({
-        direction = "float",
-        close_on_exit = false,
-        hidden = true,
-    })
+    local terminal = require("unipackage.core.terminal")
     local cmd = "manager " .. table.concat(args, " ")
-    runner.cmd = cmd
-    runner:toggle()
+    terminal.run(cmd, { title = "Manager" })
 end
 ```
 
@@ -301,14 +295,14 @@ version_selection = {
 
 ### Command Execution
 
-- **Terminal reuse**: ToggleTerm instances properly managed
+- **Native terminal**: Uses `vim.fn.jobstart()` with floating windows
 - **Async operations**: Non-blocking command execution
 - **Output parsing**: Optimized regex patterns
 
 ### Memory Management
 
 - **Garbage collection**: Proper cleanup of temporary objects
-- **Handle management**: Terminal instances cleaned up
+- **Buffer management**: Terminal buffers properly closed
 - **String operations**: Optimized pattern matching
 
 ### Caching System
@@ -336,7 +330,9 @@ end
 
 ```lua
 -- Terminal error handling
-local ok, result = pcall(runner.toggle, runner)
+local ok = pcall(function()
+    terminal.run(cmd, opts)
+end)
 if not ok then
     vim.notify("Failed to execute package manager command", vim.log.levels.ERROR)
 end
@@ -382,7 +378,7 @@ User Action
 ├── Action Function (actions.lua)
 ├── Module Loading (get_manager_module())
 ├── Command Execution (run_command())
-└── Terminal (ToggleTerm)
+└── Terminal (native via vim.fn.jobstart())
 ```
 
 ## Testing Strategy
