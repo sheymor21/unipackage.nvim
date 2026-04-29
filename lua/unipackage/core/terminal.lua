@@ -223,76 +223,177 @@ local function build_title(cmd, opts)
     return nil
 end
 
---- Create and run a terminal command using ToggleTerm
+--- Setup terminal buffer keymaps
+-- @param buf number: Buffer handle
+local function setup_terminal_keymaps(buf)
+    local opts = { buffer = buf, silent = true, noremap = true }
+
+    -- Close terminal with 'q' in normal mode
+    vim.keymap.set("n", "q", function()
+        local win = vim.fn.bufwinid(buf)
+        if win ~= -1 then
+            vim.api.nvim_win_close(win, true)
+        end
+    end, opts)
+
+    -- Close terminal with <Esc> in normal mode
+    vim.keymap.set("n", "<Esc>", function()
+        local win = vim.fn.bufwinid(buf)
+        if win ~= -1 then
+            vim.api.nvim_win_close(win, true)
+        end
+    end, opts)
+end
+
+--- Run command using vim.fn.jobstart() in a floating terminal
 -- @param cmd string: Command to execute
--- @param opts table|nil: Options {direction, close_on_exit, hidden, title, border, width, height}
+-- @param opts table: Terminal options
 -- @return boolean: success status
-function M.run(cmd, opts)
+local function run_native(cmd, opts)
     opts = opts or {}
-    local direction = opts.direction or "float"
-    local close_on_exit = opts.close_on_exit
-    if close_on_exit == nil then
-        close_on_exit = false
-    end
-    local hidden = opts.hidden
-    if hidden == nil then
-        hidden = true
+
+    apply_highlights()
+
+    local float_opts = build_float_opts(opts)
+    local width = float_opts.width
+    local height = float_opts.height
+    local col = math.floor((vim.o.columns - width) / 2)
+    local row = math.floor((vim.o.lines - height) / 2)
+
+    local title = build_title(cmd, opts)
+
+    -- Create buffer and window
+    local buf = vim.api.nvim_create_buf(false, true)
+    local win_opts = {
+        relative = "editor",
+        row = row,
+        col = col,
+        width = width,
+        height = height,
+        style = "minimal",
+        border = float_opts.border,
+        zindex = float_opts.zindex,
+    }
+
+    -- Add title if specified
+    if title then
+        win_opts.title = title
+        win_opts.title_pos = "center"
     end
 
-    local ok, Terminal = pcall(require, "toggleterm.terminal")
-    if not ok then
-        error_handler.handle("terminal", "toggleterm.nvim is required but not installed")
+    local win = vim.api.nvim_open_win(buf, true, win_opts)
+
+    -- Set winblend for transparency
+    if float_opts.winblend and float_opts.winblend > 0 then
+        vim.api.nvim_win_set_option(win, "winblend", float_opts.winblend)
+    end
+
+    -- Setup keymaps
+    setup_terminal_keymaps(buf)
+
+    -- Use vim.fn.jobstart() with term=true to open terminal in current buffer
+    local prev_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_set_current_win(win)
+
+    local job_ok, job_err = pcall(function()
+        vim.fn.jobstart(cmd, { term = true })
+    end)
+
+    if not job_ok then
+        error_handler.handle("terminal", "Failed to execute: " .. tostring(job_err))
+        vim.api.nvim_win_close(win, true)
         return false
     end
 
-    -- Apply highlights for better appearance
-    apply_highlights()
+    -- Enter terminal mode
+    vim.cmd("startinsert")
 
-    -- Build terminal options
-    local terminal_opts = {
-        direction = direction,
-        close_on_exit = close_on_exit,
-        hidden = hidden,
-    }
+    return true
+end
 
-    -- Add float options for floating terminals
-    if direction == "float" then
-        terminal_opts.float_opts = build_float_opts(opts)
-        terminal_opts.on_open = function(term)
-            -- Center the terminal
-            local width = terminal_opts.float_opts.width
-            local height = terminal_opts.float_opts.height
+--- Create terminal runner using native jobstart (stores command for later execution)
+-- @param cmd string: Command to execute
+-- @param opts table: Terminal options
+-- @return table|nil: Terminal runner object
+local function create_native(cmd, opts)
+    opts = opts or {}
+
+    return {
+        cmd = cmd,
+        opts = opts,
+        win = nil,
+        buf = nil,
+        toggle = function(self)
+            -- If window exists and is valid, close it
+            if self.win and vim.api.nvim_win_is_valid(self.win) then
+                vim.api.nvim_win_close(self.win, true)
+                self.win = nil
+                return true
+            end
+
+            -- Otherwise create new terminal
+            apply_highlights()
+
+            local float_opts = build_float_opts(self.opts)
+            local width = float_opts.width
+            local height = float_opts.height
             local col = math.floor((vim.o.columns - width) / 2)
             local row = math.floor((vim.o.lines - height) / 2)
 
-            vim.api.nvim_win_set_config(term.window, {
+            local title = build_title(self.cmd, self.opts)
+
+            self.buf = vim.api.nvim_create_buf(false, true)
+            local win_opts = {
                 relative = "editor",
                 row = row,
                 col = col,
                 width = width,
                 height = height,
-                border = terminal_opts.float_opts.border,
-                zindex = terminal_opts.float_opts.zindex,
-            })
-        end
-    end
+                style = "minimal",
+                border = float_opts.border,
+                zindex = float_opts.zindex,
+            }
 
-    -- Add title if specified
-    local title = build_title(cmd, opts)
-    if title then
-        terminal_opts.display_name = title
-    end
+            if title then
+                win_opts.title = title
+                win_opts.title_pos = "center"
+            end
 
-    local runner = Terminal.Terminal:new(terminal_opts)
-    runner.cmd = cmd
+            self.win = vim.api.nvim_open_win(self.buf, true, win_opts)
 
-    local toggle_ok, err = pcall(runner.toggle, runner)
-    if not toggle_ok then
-        error_handler.handle("terminal", "Failed to execute: " .. tostring(err))
-        return false
-    end
+            if float_opts.winblend and float_opts.winblend > 0 then
+                vim.api.nvim_win_set_option(self.win, "winblend", float_opts.winblend)
+            end
 
-    return true
+            setup_terminal_keymaps(self.buf)
+
+            local prev_win = vim.api.nvim_get_current_win()
+            vim.api.nvim_set_current_win(self.win)
+
+            local job_ok, job_err = pcall(function()
+                vim.fn.jobstart(self.cmd, { term = true })
+            end)
+
+            if not job_ok then
+                error_handler.handle("terminal", "Failed to execute: " .. tostring(job_err))
+                vim.api.nvim_win_close(self.win, true)
+                self.win = nil
+                return false
+            end
+
+            vim.cmd("startinsert")
+            return true
+        end,
+    }
+end
+
+--- Create and run a terminal command
+-- @param cmd string: Command to execute
+-- @param opts table|nil: Options {direction, close_on_exit, hidden, title, border, width, height}
+-- @return boolean: success status
+function M.run(cmd, opts)
+    opts = opts or {}
+    return run_native(cmd, opts)
 end
 
 --- Create a terminal runner without executing
@@ -301,53 +402,7 @@ end
 -- @return table|nil: Terminal runner or nil on error
 function M.create(cmd, opts)
     opts = opts or {}
-
-    local ok, Terminal = pcall(require, "toggleterm.terminal")
-    if not ok then
-        error_handler.handle("terminal", "toggleterm.nvim is required but not installed")
-        return nil
-    end
-
-    -- Apply highlights for better appearance
-    apply_highlights()
-
-    -- Build terminal options
-    local terminal_opts = {
-        direction = opts.direction or "float",
-        close_on_exit = opts.close_on_exit or false,
-        hidden = opts.hidden or true,
-    }
-
-    -- Add float options for floating terminals
-    if terminal_opts.direction == "float" then
-        terminal_opts.float_opts = build_float_opts(opts)
-        terminal_opts.on_open = function(term)
-            local width = terminal_opts.float_opts.width
-            local height = terminal_opts.float_opts.height
-            local col = math.floor((vim.o.columns - width) / 2)
-            local row = math.floor((vim.o.lines - height) / 2)
-
-            vim.api.nvim_win_set_config(term.window, {
-                relative = "editor",
-                row = row,
-                col = col,
-                width = width,
-                height = height,
-                border = terminal_opts.float_opts.border,
-                zindex = terminal_opts.float_opts.zindex,
-            })
-        end
-    end
-
-    -- Add title if specified
-    local title = build_title(cmd, opts)
-    if title then
-        terminal_opts.display_name = title
-    end
-
-    local runner = Terminal.Terminal:new(terminal_opts)
-    runner.cmd = cmd
-    return runner
+    return create_native(cmd, opts)
 end
 
 --- Run a command with styled header and output

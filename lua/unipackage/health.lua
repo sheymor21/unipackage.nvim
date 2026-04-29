@@ -47,10 +47,6 @@ function M.check()
     -- Check required dependencies
     vim.health.start("Dependencies")
 
-    -- Check toggleterm
-    local has_toggleterm = pcall(require, "toggleterm.terminal")
-    report(has_toggleterm, has_toggleterm and "toggleterm.nvim: installed" or "toggleterm.nvim: not found (required)")
-
     -- Check curl
     local has_curl = check_command("curl")
     report(has_curl, has_curl and "curl: available" or "curl: not found (required for search)")
@@ -110,6 +106,7 @@ function M.check()
     info(string.format("Search batch size: %d", cfg.search_batch_size or 20))
     info(string.format("Fallback to any: %s", cfg.fallback_to_any and "enabled" or "disabled"))
     info(string.format("Warn on fallback: %s", cfg.warn_on_fallback and "enabled" or "disabled"))
+    report(true, "Terminal: native (vim.fn.jobstart)")
 
     -- Check cache
     vim.health.start("Cache")

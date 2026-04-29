@@ -29,12 +29,27 @@ A unified package management plugin for Neovim supporting multiple languages and
 
 ### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
 
+**Option 1: With snacks.nvim (terminal provider)**
 ```lua
 {
     "sheymor/unipackage.nvim",
     dependencies = {
-        "akinsho/toggleterm.nvim", -- Required for terminal integration
-        "nvim-lua/plenary.nvim",   -- Required for async HTTP operations
+        "folke/snacks.nvim",         -- Terminal provider (alternative to toggleterm)
+        "nvim-lua/plenary.nvim",     -- Required for async HTTP operations
+    },
+    config = function()
+        require("unipackage").setup()
+    end,
+}
+```
+
+**Option 2: With toggleterm.nvim (terminal provider)**
+```lua
+{
+    "sheymor/unipackage.nvim",
+    dependencies = {
+        "akinsho/toggleterm.nvim",   -- Terminal provider (alternative to snacks)
+        "nvim-lua/plenary.nvim",     -- Required for async HTTP operations
     },
     config = function()
         require("unipackage").setup()
@@ -44,6 +59,21 @@ A unified package management plugin for Neovim supporting multiple languages and
 
 ### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
 
+**With snacks.nvim:**
+```lua
+use {
+    "sheymor/unipackage.nvim",
+    requires = { 
+        "folke/snacks.nvim",
+        "nvim-lua/plenary.nvim",
+    },
+    config = function()
+        require("unipackage").setup()
+    end,
+}
+```
+
+**With toggleterm.nvim:**
 ```lua
 use {
     "sheymor/unipackage.nvim",
@@ -59,8 +89,17 @@ use {
 
 ### Using [vim-plug](https://github.com/junegunn/vim-plug)
 
+**With snacks.nvim:**
+```vim
+Plug 'folke/snacks.nvim'
+Plug 'nvim-lua/plenary.nvim'
+Plug 'sheymor/unipackage.nvim'
+```
+
+**With toggleterm.nvim:**
 ```vim
 Plug 'akinsho/toggleterm.nvim'
+Plug 'nvim-lua/plenary.nvim'
 Plug 'sheymor/unipackage.nvim'
 ```
 
@@ -95,6 +134,12 @@ require("unipackage").setup({
     -- Fallback behavior
     fallback_to_any = true,   -- If no lock file found, use any available manager
     warn_on_fallback = true,  -- Show warning when using fallback
+
+    -- Terminal provider configuration
+    terminal_provider = "auto",  -- "auto", "toggleterm", or "snacks"
+                                 -- "auto": Use snacks if available, fallback to toggleterm
+                                 -- "snacks": Require snacks.nvim
+                                 -- "toggleterm": Require toggleterm.nvim
 
     -- Version selection configuration
     version_selection = {
@@ -488,7 +533,8 @@ Shows:
 
 Verifies:
 - Neovim version compatibility
-- Required dependencies (toggleterm, curl)
+- Required dependencies (snacks.nvim or toggleterm.nvim, curl)
+- Active terminal provider
 - Available package managers
 - Project detection status
 - Configuration settings
@@ -505,11 +551,22 @@ Clears all caches (memory cache, module cache, detection cache).
 ## Requirements
 
 - Neovim >= 0.7.0
-- [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) (for terminal integration)
+- **Terminal Provider** (choose one):
+  - [snacks.nvim](https://github.com/folke/snacks.nvim) (`snacks.terminal` module) - **Recommended**, modern alternative
+  - [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) - Classic terminal integration
+- [plenary.nvim](https://github.com/nvim-lua/plenary.nvim) (for async HTTP operations)
 - Language-specific tools:
   - **JavaScript**: npm, yarn, pnpm, or bun
   - **Go**: Go 1.18+ (for workspace support)
   - **.NET**: .NET SDK
+
+### Terminal Provider Priority
+
+When `terminal_provider = "auto"` (default):
+1. **snacks.nvim** is checked first (if available, it's used)
+2. **toggleterm.nvim** is used as fallback
+
+You can explicitly set `terminal_provider = "snacks"` or `terminal_provider = "toggleterm"` to force a specific provider.
 
 ## Contributing
 
@@ -529,6 +586,7 @@ For technical documentation, architecture details, and contribution guidelines, 
 
 ## Acknowledgments
 
-- [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) - Terminal integration
+- [snacks.nvim](https://github.com/folke/snacks.nvim) - Modern terminal integration (recommended)
+- [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) - Classic terminal integration
 - [NuGet API](https://docs.microsoft.com/en-us/nuget/api/) - .NET package search
 - [npm Registry](https://github.com/npm/registry) - JavaScript package search
