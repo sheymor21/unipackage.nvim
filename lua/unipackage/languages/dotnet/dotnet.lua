@@ -1,6 +1,7 @@
 local M = {}
 
 local terminal = require("unipackage.core.terminal")
+local picker = require("unipackage.core.picker")
 
 --- Check if current directory has a solution file
 -- @return string|nil: solution filename or nil

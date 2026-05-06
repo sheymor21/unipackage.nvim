@@ -6,6 +6,7 @@ local actions = require("unipackage.core.actions")
 local error_handler = require("unipackage.core.error")
 local terminal = require("unipackage.core.terminal")
 local version_ui = require("unipackage.core.version_ui")
+local picker = require("unipackage.core.picker")
 
 -- =============================================================================
 -- NOTIFICATION UTILITIES
@@ -139,7 +140,7 @@ function M.select_dotnet_project(module, operation, callback)
         table.insert(options, display)
     end
 
-    vim.ui.select(options, {
+    picker.select(options, {
         prompt = "[>] Select project for " .. operation .. ":",
     }, function(choice, idx)
         if not idx then
@@ -191,7 +192,7 @@ function M.search_and_install_dotnet(query, project)
             table.insert(options, nuget_search.format_search_result(pkg))
         end
 
-        vim.ui.select(options, {
+        picker.select(options, {
             prompt = "[*] Search results for '" .. query .. "':",
         }, function(choice, idx)
             if not choice or not idx then
@@ -209,7 +210,7 @@ function M.search_and_install_dotnet(query, project)
                     end
 
                     local cmd = "dotnet add " .. project .. " package " .. selected_pkg.id .. " --version " .. version
-                    vim.ui.select({"[Y] Yes", "[N] No"}, {
+                    picker.select({"[Y] Yes", "[N] No"}, {
                         prompt = "[+] Install " .. selected_pkg.id .. "@" .. version .. " to " .. project .. "?",
                     }, function(choice)
                         if choice == "[Y] Yes" then
@@ -221,7 +222,7 @@ function M.search_and_install_dotnet(query, project)
                     end)
                 end)
             else
-                vim.ui.select({"[Y] Yes", "[N] No"}, {
+                picker.select({"[Y] Yes", "[N] No"}, {
                     prompt = "[+] Install " .. selected_pkg.id .. " to " .. project .. "?",
                 }, function(choice)
                     if choice == "[Y] Yes" then
@@ -266,7 +267,7 @@ local function show_paginated_results(query, results, batch_size, manager)
             table.insert(options, "[+] Load more... (" .. tostring(#results - end_idx) .. " remaining)")
         end
 
-        vim.ui.select(options, {
+        picker.select(options, {
             prompt = string.format("[*] Search results for '%s' (%d-%d of %d):",
                 query, start_idx, end_idx, #results),
         }, function(choice, idx)
@@ -291,21 +292,21 @@ local function show_paginated_results(query, results, batch_size, manager)
             if config.is_version_selection_enabled("javascript") then
                 version_ui.select_npm_version(selected_pkg.name, manager, function(version)
                     local full_pkg = selected_pkg.name .. "@" .. version
-                    vim.ui.select({"[Y] Yes", "[N] No"}, {
-                        prompt = "[+] Install " .. full_pkg .. "?",
-                    }, function(choice)
-                        if choice == "[Y] Yes" then
-                            actions.install_packages({full_pkg}, manager)
-                        else
-                            notify("Installation cancelled", vim.log.levels.WARN)
-                        end
-                    end)
-                end)
-            else
-                local full_pkg = selected_pkg.name .. "@latest"
-                vim.ui.select({"[Y] Yes", "[N] No"}, {
+                picker.select({"[Y] Yes", "[N] No"}, {
                     prompt = "[+] Install " .. full_pkg .. "?",
                 }, function(choice)
+                    if choice == "[Y] Yes" then
+                        actions.install_packages({full_pkg}, manager)
+                    else
+                        notify("Installation cancelled", vim.log.levels.WARN)
+                    end
+                end)
+            end)
+        else
+            local full_pkg = selected_pkg.name .. "@latest"
+            picker.select({"[Y] Yes", "[N] No"}, {
+                prompt = "[+] Install " .. full_pkg .. "?",
+            }, function(choice)
                     if choice == "[Y] Yes" then
                         actions.install_packages({full_pkg}, manager)
                     else
@@ -365,7 +366,7 @@ local function handle_direct_install(input, manager)
     end
 
     if #packages > 1 then
-        vim.ui.select({"[Y] Yes", "[N] No"}, {
+        picker.select({"[Y] Yes", "[N] No"}, {
             prompt = string.format("[+] Install these %d packages with %s?\n  [*] %s",
                 #packages, manager:upper(), table.concat(packages, "\n  [*] ")),
         }, function(choice)
@@ -400,7 +401,7 @@ function M.install_packages_dialog(manager)
                 return
             end
 
-            vim.ui.input(create_input_opts(project_info .. "[+] Install package(s) (" .. manager:upper() .. ") [type to search]:"),
+            picker.input(create_input_opts(project_info .. "[+] Install package(s) (" .. manager:upper() .. ") [type to search]:"),
                 function(input)
                     if not input or input == "" then
                         notify("Package installation cancelled", vim.log.levels.WARN)
@@ -418,7 +419,7 @@ function M.install_packages_dialog(manager)
         return
     end
 
-    vim.ui.input(create_input_opts(project_info .. "[+] Install package(s) (" .. manager:upper() .. ") [type to search]:"),
+    picker.input(create_input_opts(project_info .. "[+] Install package(s) (" .. manager:upper() .. ") [type to search]:"),
         function(input)
             if not input or input == "" then
                 notify("Package installation cancelled", vim.log.levels.WARN)
@@ -482,7 +483,7 @@ local function handle_dotnet_uninstall(project)
         return
     end
 
-    vim.ui.select(packages, {
+    picker.select(packages, {
         prompt = "[-] Select package to uninstall from " .. project .. ":",
         format_item = function(item)
             return "[*] " .. item
@@ -493,7 +494,7 @@ local function handle_dotnet_uninstall(project)
             return
         end
 
-        vim.ui.select({"[Y] Yes", "[N] No"}, {
+        picker.select({"[Y] Yes", "[N] No"}, {
             prompt = "[-] Uninstall package: " .. selected .. " from " .. project .. "?",
         }, function(choice)
             if choice == "[Y] Yes" then
@@ -533,7 +534,7 @@ function M.uninstall_packages_dialog(manager)
         return
     end
 
-    vim.ui.select(packages, {
+    picker.select(packages, {
         prompt = "[-] Select package(s) to uninstall (" .. manager:upper() .. "):",
         format_item = function(item)
             return "[*] " .. item
@@ -544,7 +545,7 @@ function M.uninstall_packages_dialog(manager)
             return
         end
 
-        vim.ui.select({"[Y] Yes", "[N] No"}, {
+        picker.select({"[Y] Yes", "[N] No"}, {
             prompt = "[-] Uninstall package: " .. selected .. "?",
         }, function(choice)
             if choice == "[Y] Yes" then
@@ -574,7 +575,7 @@ local function create_menu_options(manager)
         table.insert(base_options, {
             name = "[~] Mod Tidy (" .. manager:upper() .. ")",
             func = function()
-                vim.ui.select({"[Y] Yes", "[N] No"}, {
+                picker.select({"[Y] Yes", "[N] No"}, {
                     prompt = "Run 'go mod tidy' to clean up dependencies?",
                 }, function(choice)
                     if choice == "[Y] Yes" then
@@ -591,7 +592,7 @@ local function create_menu_options(manager)
         table.insert(base_options, {
             name = "[*] Restore packages (" .. manager:upper() .. ")",
             func = function()
-                vim.ui.select({"[Y] Yes", "[N] No"}, {
+                picker.select({"[Y] Yes", "[N] No"}, {
                     prompt = "Run 'dotnet restore' to restore packages?",
                 }, function(choice)
                     if choice == "[Y] Yes" then
@@ -630,7 +631,7 @@ function M.package_menu(manager)
         table.insert(option_names, opt.name)
     end
 
-    vim.ui.select(option_names, {
+    picker.select(option_names, {
         prompt = project_info .. "[*] Package Management:",
     }, function(choice)
         if not choice then
@@ -670,7 +671,7 @@ function M.add_reference_dialog(manager)
         return
     end
 
-    vim.ui.select(projects, {
+    picker.select(projects, {
         prompt = "[>] Select project to add as reference:",
         format_item = function(item)
             return "[*] " .. item
@@ -681,7 +682,7 @@ function M.add_reference_dialog(manager)
             return
         end
 
-        vim.ui.select({"[Y] Yes", "[N] No"}, {
+        picker.select({"[Y] Yes", "[N] No"}, {
             prompt = "Add reference to: " .. selected .. "?",
         }, function(choice)
             if choice == "[Y] Yes" then

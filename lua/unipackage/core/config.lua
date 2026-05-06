@@ -9,6 +9,7 @@ local default_config = {
     search_batch_size = constants.DEFAULT_SEARCH_BATCH_SIZE,
     fallback_to_any = true,
     warn_on_fallback = true,
+    picker = "auto", -- "auto", "native", "snacks"
     version_selection = {
         enabled = false,
         languages = {
@@ -300,6 +301,15 @@ local function validate_config(user_config)
             or user_config.search_batch_size > constants.MAX_SEARCH_BATCH_SIZE then
             table.insert(errors, string.format("search_batch_size must be between %d and %d",
                 constants.MIN_SEARCH_BATCH_SIZE, constants.MAX_SEARCH_BATCH_SIZE))
+        end
+    end
+
+    if user_config.picker ~= nil then
+        local valid_pickers = { auto = true, native = true, snacks = true }
+        if type(user_config.picker) ~= "string" then
+            table.insert(errors, "picker must be a string")
+        elseif not valid_pickers[user_config.picker] then
+            table.insert(errors, string.format("picker must be one of: auto, native, snacks (got: %s)", user_config.picker))
         end
     end
 

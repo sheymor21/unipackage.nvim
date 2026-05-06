@@ -108,6 +108,26 @@ function M.check()
     info(string.format("Warn on fallback: %s", cfg.warn_on_fallback and "enabled" or "disabled"))
     report(true, "Terminal: native (vim.fn.jobstart)")
 
+    -- Check picker
+    vim.health.start("Picker")
+
+    local picker = require("unipackage.core.picker")
+    local picker_status = picker.status()
+    info(string.format("Picker config: %s", picker_status.config))
+    if picker_status.select_active then
+        report(true, "snacks.picker: active (select)")
+    else
+        report(true, "vim.ui.select: active (native)")
+    end
+    if picker_status.input_active then
+        report(true, "snacks.input: active (input)")
+    else
+        report(true, "vim.ui.input: active (native)")
+    end
+    if not picker_status.snacks_available then
+        info("snacks.nvim not detected (install folke/snacks.nvim for enhanced UI)")
+    end
+
     -- Check cache
     vim.health.start("Cache")
 

@@ -14,6 +14,7 @@ A unified package management plugin for Neovim supporting multiple languages and
 - 🔍 **Lock File Priority**: Respects existing project setup over user preferences
 - ⚙️ **Configurable**: User-defined priority, fallback behavior, and search batch size
 - 🖥️ **Interactive UI**: Native Neovim UI with fuzzy finding and loading indicators
+- 🍭 **Snacks Picker**: Optional integration with snacks.nvim for enhanced UI
 - 💾 **Intelligent Caching**: In-memory LRU cache with size limits and persistence
 - 🏷️ **Version Selection**: Select specific package versions (major → specific) with per-language configuration
 
@@ -34,6 +35,7 @@ A unified package management plugin for Neovim supporting multiple languages and
     "sheymor/unipackage.nvim",
     dependencies = {
         "nvim-lua/plenary.nvim",     -- Required for async HTTP operations
+        "folke/snacks.nvim",         -- Optional: for enhanced picker UI
     },
     config = function()
         require("unipackage").setup()
@@ -91,6 +93,12 @@ require("unipackage").setup({
     -- Fallback behavior
     fallback_to_any = true,   -- If no lock file found, use any available manager
     warn_on_fallback = true,  -- Show warning when using fallback
+
+    -- Picker UI configuration
+    picker = "auto",          -- "auto", "native", or "snacks"
+                              -- "auto" = use snacks.nvim if available, otherwise native
+                              -- "native" = always use vim.ui.select/input
+                              -- "snacks" = always use snacks.nvim (requires snacks.nvim)
 
     -- Version selection configuration
     version_selection = {
@@ -288,6 +296,16 @@ require("unipackage").setup({
     fallback_to_any = false  -- Only work when lock file detected
 })
 ```
+
+### Use Snacks Picker (Enhanced UI)
+
+```lua
+require("unipackage").setup({
+    picker = "snacks"  -- Use snacks.nvim for all UI (requires folke/snacks.nvim)
+})
+```
+
+With `picker = "auto"` (default), UniPackage will automatically use snacks.nvim if it's available in your runtimepath, otherwise it falls back to native `vim.ui.select`/`vim.ui.input`.
 
 ### Runtime Configuration
 

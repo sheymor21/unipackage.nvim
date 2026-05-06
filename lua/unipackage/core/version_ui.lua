@@ -2,6 +2,7 @@ local M = {}
 
 local config = require("unipackage.core.config")
 local error_handler = require("unipackage.core.error")
+local picker = require("unipackage.core.picker")
 
 -- =============================================================================
 -- NOTIFICATION UTILITIES
@@ -87,7 +88,7 @@ local function show_major_selection(package_name, major_list, version_api, on_se
         table.insert(options, version_api.format_major(tostring(item.major), item.group))
     end
 
-    vim.ui.select(options, {
+    picker.select(options, {
         prompt = "[*] Select major version for " .. package_name .. ":",
     }, function(choice, idx)
         if not choice or not idx then
@@ -106,7 +107,7 @@ local function show_version_selection(package_name, versions, version_api, on_se
         table.insert(options, version_api.format(version))
     end
 
-    vim.ui.select(options, {
+    picker.select(options, {
         prompt = "[*] Select version for " .. package_name .. ":",
     }, function(choice, idx)
         if not choice or not idx then
