@@ -157,6 +157,7 @@ function M.run_go_mod_tidy()
 end
 
 --- Run dotnet restore for dotnet projects with styled terminal
+-- Automatically configures NuGet credentials from UNIPACKAGE_NUGET_* environment variables
 function M.run_dotnet_restore()
     local manager_module = get_manager_module("dotnet")
     if not manager_module then
@@ -164,7 +165,46 @@ function M.run_dotnet_restore()
     end
 
     local terminal = require("unipackage.core.terminal")
-    terminal.run_with_header("dotnet restore", {
+    local nuget_config = require("unipackage.utils.nuget_config")
+
+    local sources = nuget_config.get_package_sources()
+    local cmd = "dotnet restore"
+
+    if sources then
+        local endpoints = {}
+        for _, source in ipairs(sources) do
+            if source.url then
+                local env_name = source.name:gsub("[^%w]", "_"):upper()
+                local username = os.getenv("UNIPACKAGE_NUGET_" .. env_name .. "_USERNAME")
+                local token = os.getenv("UNIPACKAGE_NUGET_" .. env_name .. "_TOKEN")
+
+                if not token then
+                    token = os.getenv("UNIPACKAGE_NUGET_" .. env_name .. "_PASSWORD")
+                end
+
+                if username and token then
+                    table.insert(endpoints, {
+                        endpoint = source.url,
+                        username = username,
+                        password = token,
+                    })
+                end
+            end
+        end
+
+        if #endpoints > 0 then
+            local endpoints_json = vim.fn.json_encode({
+                endpointCredentials = endpoints,
+            })
+            cmd = string.format(
+                "export VSS_NUGET_EXTERNAL_FEED_ENDPOINTS='%s'; %s",
+                endpoints_json:gsub("'", "'\"'\"'"),
+                cmd
+            )
+        end
+    end
+
+    terminal.run_with_header(cmd, {
         manager = ".NET",
         title = "Dotnet Restore",
     })
