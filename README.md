@@ -405,6 +405,9 @@ az login
 
 **The plugin will automatically detect and use the credential provider for Azure DevOps feeds!**
 
+These credentials are also used for `dotnet restore` - the plugin exports them as
+`VSS_NUGET_EXTERNAL_FEED_ENDPOINTS` so private feeds authenticate during restore.
+
 ### Secure Authentication (Alternative)
 
 If you prefer not to use the credential provider, you can use environment variables:

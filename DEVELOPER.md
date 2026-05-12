@@ -466,6 +466,7 @@ Supported filenames: `nuget.config`, `NuGet.config`, `NuGet.Config`
 
 #### Authentication Flow
 
+**Search flow:**
 ```
 Search Request
     ↓
@@ -480,6 +481,23 @@ Query each source with authentication
 Merge and deduplicate results
     ↓
 Return sorted by popularity
+```
+
+**Restore flow:**
+```
+Run dotnet restore
+    ↓
+Get package sources from nuget.config
+    ↓
+Check UNIPACKAGE_NUGET_<SOURCE>_TOKEN for each source
+    ↓
+Build VSS_NUGET_EXTERNAL_FEED_ENDPOINTS JSON
+    ↓
+Prepend `export VSS_NUGET_EXTERNAL_FEED_ENDPOINTS=...;` to command
+    ↓
+Execute `dotnet restore` with env var set in shell
+    ↓
+dotnet CLI uses credentials for private NuGet feeds
 ```
 
 #### Search Implementation

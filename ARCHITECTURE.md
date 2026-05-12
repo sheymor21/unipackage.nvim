@@ -229,6 +229,7 @@ end
 - **Security**: Environment variables take priority over config file credentials
 - **Environment format**: `UNIPACKAGE_NUGET_<SOURCE>_USERNAME` and `UNIPACKAGE_NUGET_<SOURCE>_TOKEN`
 - **Source name normalization**: Special chars → underscores, uppercase (e.g., "My-Feed" → "MY_FEED")
+- **Restore integration**: Credentials exported as `VSS_NUGET_EXTERNAL_FEED_ENDPOINTS` for `dotnet restore` to use private feeds
 
 #### nuget_search.lua
 - **Registry fetching**: Fetch search results from NuGet API
