@@ -32,6 +32,7 @@ unipackage/
 │   │   ├── ui.lua          # User interface
 │   │   ├── version_ui.lua  # Version selection UI
 │   │   ├── terminal.lua    # Terminal abstraction
+│   │   ├── picker.lua      -- Picker abstraction (snacks/telescope/fzf-lua)
 │   │   └── error.lua       # Error handling
 │   ├── languages/          # Language-specific implementations
 │   │   ├── go/
@@ -91,6 +92,7 @@ local default_config = {
     search_batch_size = 20,  -- Number of items per batch in search results
     fallback_to_any = true,
     warn_on_fallback = true,
+    picker = "auto",         -- "auto", "native", "snacks", "telescope", "fzf-lua"
     version_selection = {
         enabled = false,                    -- Disabled by default
         languages = {                       -- Per-language control
@@ -202,6 +204,16 @@ end
 - **Shared utilities**: Notification helpers, loading indicators
 - **Configurable**: Respects `version_selection` configuration
 
+### picker.lua - Picker Abstraction
+- **Multi-picker support**: snacks.nvim, telescope.nvim, fzf-lua, native fallback
+- **Auto-detection**: Automatically detects available picker plugins
+- **Unified interface**: Consistent `select()` and `input()` functions across all backends
+- **Format support**: Handles `format_item` option for custom display
+- **Priority order**: snacks → telescope → fzf-lua → native (with `picker = "auto"`)
+- **Explicit selection**: Force specific picker with `picker = "snacks"`, `picker = "telescope"`, etc.
+- **Graceful fallback**: Falls back to native vim.ui.* on errors or unavailable pickers
+- **Input limitations**: snacks provides both select + input; telescope/fzf-lua provide select only (input falls back to native)
+
 ### Version Utilities (utils/)
 
 #### version_utils.lua
@@ -295,6 +307,21 @@ Lock Files + User Priority + System Availability
 ├── Resolution (config.get_preferred_manager())
 └── Selection (utils.get_manager_for_project())
 ```
+
+### Picker Selection
+```
+Picker Configuration (config.get("picker"))
+├── "auto" → Detect available pickers:
+│   ├── Check snacks.picker → Use if available
+│   ├── Check telescope → Use if available
+│   ├── Check fzf-lua → Use if available
+│   └── Fallback → vim.ui.select/input (native)
+├── "snacks" → Force snacks.picker/snacks.input
+├── "telescope" → Force telescope (select only)
+├── "fzf-lua" → Force fzf-lua (select only)
+└── "native" → Force vim.ui.select/input
+```
+
 ### Command Execution
 
 ```

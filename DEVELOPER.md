@@ -37,6 +37,7 @@ lua/unipackage/
 │   ├── ui.lua              -- User interface
 │   ├── version_ui.lua      -- Version selection UI
 │   ├── terminal.lua        -- Terminal abstraction
+│   ├── picker.lua          -- Picker abstraction (snacks/telescope/fzf-lua)
 │   └── error.lua           -- Error handling utilities
 ├── languages/
 │   ├── go/
@@ -114,6 +115,113 @@ function M.setup(user_config)
     -- Merge with defaults
     -- Store in global variable
     -- Return success status
+end
+```
+
+### Picker Interface
+
+The picker system provides a unified abstraction over multiple picker plugins (snacks.nvim, telescope.nvim, fzf-lua) with native fallback.
+
+#### `select(items, opts, on_choice)`
+
+```lua
+--- Wrapper for vim.ui.select with multiple picker backends
+-- @generic T
+-- @param items T[]
+-- @param opts table|nil
+-- @param on_choice fun(item?: T, idx?: number)
+function M.select(items, opts, on_choice)
+    -- Resolve picker based on config (auto/snacks/telescope/fzf-lua/native)
+    -- Route to appropriate picker implementation
+    -- Fall back to vim.ui.select on error
+end
+```
+
+#### `input(opts, on_confirm)`
+
+```lua
+--- Wrapper for vim.ui.input with multiple picker backends
+-- @param opts table|nil
+-- @param on_confirm fun(value?: string)
+function M.input(opts, on_confirm)
+    -- Resolve picker based on config
+    -- snacks.input supported (input only)
+    -- telescope/fzf-lua fall back to vim.ui.input
+end
+```
+
+#### Picker Resolution Priority
+
+With `picker = "auto"` (default), the system automatically detects available pickers in this order:
+1. **snacks.nvim** - Full select + input support
+2. **telescope.nvim** - Select support (input falls back to native)
+3. **fzf-lua** - Select support (input falls back to native)
+4. **native** - vim.ui.select + vim.ui.input
+
+Explicit picker selection (`picker = "telescope"`, `picker = "fzf-lua"`, etc.) forces use of that specific picker.
+
+#### Adding New Picker Support
+
+To add support for a new picker plugin:
+
+1. **Add detection function** in `picker.lua`:
+```lua
+local function has_new_picker()
+    local ok, _ = pcall(require, "new_picker")
+    return ok
+end
+```
+
+2. **Add picker implementation**:
+```lua
+local function new_picker_select(items, opts, on_choice)
+    local new_picker = require("new_picker")
+    -- Implement selection using new picker API
+    -- Handle opts.format_item if needed
+    -- Call on_choice(item, idx) on selection
+end
+```
+
+3. **Update resolution logic** in `resolve_select_picker()`:
+```lua
+elseif picker_config == "new_picker" then
+    return has_new_picker() and "new_picker" or "native"
+else
+    -- "auto": add to detection chain
+    if has_snacks_picker() then return "snacks"
+    elseif has_telescope() then return "telescope"
+    elseif has_fzf_lua() then return "fzf-lua"
+    elseif has_new_picker() then return "new_picker"  -- Add here
+    else return "native" end
+end
+```
+
+4. **Add routing** in `M.select()`:
+```lua
+elseif picker == "new_picker" then
+    local ok, _ = pcall(require, "new_picker")
+    if ok then
+        local success, err = pcall(new_picker_select, items, opts, on_choice)
+        if success then return end
+        vim.notify("New picker failed: " .. tostring(err), vim.log.levels.WARN)
+    end
+```
+
+5. **Update config validation** in `config.lua`:
+```lua
+local valid_pickers = {
+    auto = true, native = true, snacks = true,
+    telescope = true, ["fzf-lua"] = true,
+    new_picker = true  -- Add here
+}
+```
+
+6. **Update health checks** in `health.lua`:
+```lua
+if picker_status.new_picker_available then
+    info("new_picker: available")
+else
+    info("new_picker: not detected")
 end
 ```
 

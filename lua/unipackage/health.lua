@@ -114,18 +114,44 @@ function M.check()
     local picker = require("unipackage.core.picker")
     local picker_status = picker.status()
     info(string.format("Picker config: %s", picker_status.config))
-    if picker_status.select_active then
+
+    -- Report select picker
+    local select_name = picker_status.select_active
+    if select_name == "snacks" then
         report(true, "snacks.picker: active (select)")
+    elseif select_name == "telescope" then
+        report(true, "telescope: active (select)")
+    elseif select_name == "fzf-lua" then
+        report(true, "fzf-lua: active (select)")
     else
         report(true, "vim.ui.select: active (native)")
     end
-    if picker_status.input_active then
+
+    -- Report input picker
+    local input_name = picker_status.input_active
+    if input_name == "snacks" then
         report(true, "snacks.input: active (input)")
     else
         report(true, "vim.ui.input: active (native)")
     end
-    if not picker_status.snacks_available then
-        info("snacks.nvim not detected (install folke/snacks.nvim for enhanced UI)")
+
+    -- Report available pickers
+    if picker_status.snacks_available then
+        info("snacks.nvim: available")
+    else
+        info("snacks.nvim: not detected (install folke/snacks.nvim for enhanced UI)")
+    end
+
+    if picker_status.telescope_available then
+        info("telescope.nvim: available")
+    else
+        info("telescope.nvim: not detected")
+    end
+
+    if picker_status.fzf_lua_available then
+        info("fzf-lua: available")
+    else
+        info("fzf-lua: not detected")
     end
 
     -- Check cache
