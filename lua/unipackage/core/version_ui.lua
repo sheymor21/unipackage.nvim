@@ -3,6 +3,7 @@ local M = {}
 local config = require("unipackage.core.config")
 local error_handler = require("unipackage.core.error")
 local picker = require("unipackage.core.picker")
+local icons = require("unipackage.core.icons")
 
 -- =============================================================================
 -- NOTIFICATION UTILITIES
@@ -89,7 +90,7 @@ local function show_major_selection(package_name, major_list, version_api, on_se
     end
 
     picker.select(options, {
-        prompt = "[*] Select major version for " .. package_name .. ":",
+        prompt = icons.prompt("version", "Select major version") .. " for " .. package_name,
     }, function(choice, idx)
         if not choice or not idx then
             M.notify("Version selection cancelled", vim.log.levels.WARN)
@@ -108,7 +109,7 @@ local function show_version_selection(package_name, versions, version_api, on_se
     end
 
     picker.select(options, {
-        prompt = "[*] Select version for " .. package_name .. ":",
+        prompt = icons.prompt("version", "Select version") .. " for " .. package_name,
     }, function(choice, idx)
         if not choice or not idx then
             M.notify("Version selection cancelled", vim.log.levels.WARN)
@@ -125,8 +126,8 @@ local function select_version_flow(package_name, version_api, on_complete)
     local include_prerelease = version_config.include_prerelease
     local max_versions = version_config.max_versions_shown
 
-    M.notify("[~] Searching versions for: " .. package_name, vim.log.levels.INFO)
-    local loading = M.show_loading("[~] Fetching versions for: " .. package_name)
+    M.notify(icons.prompt("loading", "Searching versions for " .. package_name), vim.log.levels.INFO)
+    local loading = M.show_loading(icons.prompt("loading", "Fetching versions for " .. package_name))
 
     version_api.get_by_major(package_name, include_prerelease, function(groups, err)
         M.clear_loading(loading)
@@ -151,7 +152,7 @@ local function select_version_flow(package_name, version_api, on_complete)
                 return
             end
 
-            local version_loading = M.show_loading("[~] Loading versions for " .. selected_major .. ".x")
+            local version_loading = M.show_loading(icons.prompt("loading", "Loading versions for " .. selected_major .. ".x"))
 
             version_api.get_for_major(package_name, selected_major, include_prerelease, max_versions, function(versions, verr)
                 M.clear_loading(version_loading)

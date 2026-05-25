@@ -32,7 +32,7 @@ unipackage/
 │   │   ├── ui.lua          # User interface
 │   │   ├── version_ui.lua  # Version selection UI
 │   │   ├── terminal.lua    # Terminal abstraction
-│   │   ├── picker.lua      -- Picker abstraction (snacks/telescope/fzf-lua)
+│   │   ├── picker.lua      -- Picker abstraction (vim.ui.select/input, dressing.nvim)
 │   │   └── error.lua       # Error handling
 │   ├── languages/          # Language-specific implementations
 │   │   ├── go/
@@ -92,7 +92,6 @@ local default_config = {
     search_batch_size = 20,  -- Number of items per batch in search results
     fallback_to_any = true,
     warn_on_fallback = true,
-    picker = "auto",         -- "auto", "native", "snacks", "telescope", "fzf-lua"
     version_selection = {
         enabled = false,                    -- Disabled by default
         languages = {                       -- Per-language control
@@ -205,14 +204,10 @@ end
 - **Configurable**: Respects `version_selection` configuration
 
 ### picker.lua - Picker Abstraction
-- **Multi-picker support**: snacks.nvim, telescope.nvim, fzf-lua, native fallback
-- **Auto-detection**: Automatically detects available picker plugins
-- **Unified interface**: Consistent `select()` and `input()` functions across all backends
-- **Format support**: Handles `format_item` option for custom display
-- **Priority order**: snacks → telescope → fzf-lua → native (with `picker = "auto"`)
-- **Explicit selection**: Force specific picker with `picker = "snacks"`, `picker = "telescope"`, etc.
-- **Graceful fallback**: Falls back to native vim.ui.* on errors or unavailable pickers
-- **Input limitations**: snacks provides both select + input; telescope/fzf-lua provide select only (input falls back to native)
+- **Unified interface**: Consistent `select()` and `input()` wrappers around `vim.ui.*`
+- **Telescope support**: Opt-in direct Telescope integration via `ui.telescope = true`
+- **dressing.nvim support**: Automatically enhanced when dressing.nvim is installed
+- **Native fallback**: Uses built-in `vim.ui.select` and `vim.ui.input` by default
 
 ### Version Utilities (utils/)
 
@@ -310,16 +305,9 @@ Lock Files + User Priority + System Availability
 
 ### Picker Selection
 ```
-Picker Configuration (config.get("picker"))
-├── "auto" → Detect available pickers:
-│   ├── Check snacks.picker → Use if available
-│   ├── Check telescope → Use if available
-│   ├── Check fzf-lua → Use if available
-│   └── Fallback → vim.ui.select/input (native)
-├── "snacks" → Force snacks.picker/snacks.input
-├── "telescope" → Force telescope (select only)
-├── "fzf-lua" → Force fzf-lua (select only)
-└── "native" → Force vim.ui.select/input
+vim.ui.select / vim.ui.input
+├── dressing.nvim installed → Enhanced UI (telescope, fzf, etc.)
+└── dressing.nvim not installed → Native Neovim UI
 ```
 
 ### Command Execution

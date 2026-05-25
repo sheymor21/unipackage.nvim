@@ -60,7 +60,7 @@ function M.run_command(args)
         end
 
         -- Show confirmation dialog
-        vim.ui.select({"[Y] Yes", "[N] No"}, {
+        picker.select({"[Y] Yes", "[N] No"}, {
             prompt = "[-] Remove package: " .. package .. "?",
         }, function(choice)
             if choice == "[Y] Yes" then
@@ -173,8 +173,8 @@ function M.get_projects()
             
             for line in output:gmatch("[^\r\n]+") do
                 -- Remove leading ./
-                line = line:gsub("^%./", "")
-                table.insert(projects, line)
+                local clean_line = line:gsub("^%./", "")
+                table.insert(projects, clean_line)
             end
         end
     end

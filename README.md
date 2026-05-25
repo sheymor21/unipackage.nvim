@@ -14,7 +14,7 @@ A unified package management plugin for Neovim supporting multiple languages and
 - 🔍 **Lock File Priority**: Respects existing project setup over user preferences
 - ⚙️ **Configurable**: User-defined priority, fallback behavior, and search batch size
 - 🖥️ **Interactive UI**: Native Neovim UI with fuzzy finding and loading indicators
-- 🍭 **Picker Support**: Optional integration with snacks.nvim, telescope.nvim, or fzf-lua for enhanced UI
+- 🍭 **Enhanced UI**: Optional dressing.nvim integration for better vim.ui.select/input experience
 - 💾 **Intelligent Caching**: In-memory LRU cache with size limits and persistence
 - 🏷️ **Version Selection**: Select specific package versions (major → specific) with per-language configuration
 
@@ -36,9 +36,7 @@ A unified package management plugin for Neovim supporting multiple languages and
     dependencies = {
         "nvim-lua/plenary.nvim",     -- Required for async HTTP operations
         -- Optional: pick one for enhanced UI (auto-detected)
-        "folke/snacks.nvim",         -- Optional: snacks picker + input
-        -- "nvim-telescope/telescope.nvim",  -- Optional: telescope picker
-        -- "ibhagwan/fzf-lua",               -- Optional: fzf-lua picker
+        -- "stevearc/dressing.nvim",  -- Optional: enhances vim.ui.select/input
     },
     config = function()
         require("unipackage").setup()
@@ -96,14 +94,6 @@ require("unipackage").setup({
     -- Fallback behavior
     fallback_to_any = true,   -- If no lock file found, use any available manager
     warn_on_fallback = true,  -- Show warning when using fallback
-
-    -- Picker UI configuration
-    picker = "auto",          -- "auto", "native", "snacks", "telescope", or "fzf-lua"
-                              -- "auto" = auto-detect: snacks → telescope → fzf-lua → native
-                              -- "native" = always use vim.ui.select/input
-                              -- "snacks" = always use snacks.nvim (requires folke/snacks.nvim)
-                              -- "telescope" = always use telescope.nvim (requires nvim-telescope/telescope.nvim)
-                              -- "fzf-lua" = always use fzf-lua (requires ibhagwan/fzf-lua)
 
     -- Version selection configuration
     version_selection = {
@@ -302,34 +292,34 @@ require("unipackage").setup({
 })
 ```
 
-### Picker UI (Enhanced UI)
+### Enable Telescope Picker
 
-Choose your preferred picker UI plugin. With `picker = "auto"` (default), UniPackage will automatically detect available picker plugins in this priority order:
-1. **snacks.nvim** (folke/snacks.nvim) — full select + input support
-2. **telescope.nvim** (nvim-telescope/telescope.nvim) — select support
-3. **fzf-lua** (ibhagwan/fzf-lua) — select support
-4. **native** `vim.ui.select`/`vim.ui.input` — fallback
+By default, UniPackage uses native `vim.ui.select` and `vim.ui.input`. You can opt-in to use Telescope for enhanced pickers:
 
 ```lua
--- Use snacks.nvim (select + input)
 require("unipackage").setup({
-    picker = "snacks"
+    ui = {
+        telescope = true,  -- Use Telescope pickers when available
+    }
 })
+```
 
--- Use telescope.nvim (select only; input falls back to native)
-require("unipackage").setup({
-    picker = "telescope"
-})
+### Enhanced UI with dressing.nvim
 
--- Use fzf-lua (select only; input falls back to native)
-require("unipackage").setup({
-    picker = "fzf-lua"
-})
+UniPackage uses `vim.ui.select` and `vim.ui.input` for all interactive prompts. Install [dressing.nvim](https://github.com/stevearc/dressing.nvim) to enhance these with your preferred UI backend (telescope, fzf, nui, etc.):
 
--- Force native UI
-require("unipackage").setup({
-    picker = "native"
-})
+```lua
+-- With lazy.nvim
+{
+    "sheymor/unipackage.nvim",
+    dependencies = {
+        "nvim-lua/plenary.nvim",
+        "stevearc/dressing.nvim",  -- Optional: enhances vim.ui.select/input
+    },
+    config = function()
+        require("unipackage").setup()
+    end,
+}
 ```
 
 ### Runtime Configuration

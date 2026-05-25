@@ -159,7 +159,8 @@ end, {
             '{"search_batch_size": 10}',
             '{"package_managers": ["bun", "npm"]}',
             '{"fallback_to_any": false}',
-            '{"warn_on_fallback": true}'
+            '{"warn_on_fallback": true}',
+            '{"ui": {"telescope": true}}'
         }
     end
 })

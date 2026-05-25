@@ -9,7 +9,6 @@ local default_config = {
     search_batch_size = constants.DEFAULT_SEARCH_BATCH_SIZE,
     fallback_to_any = true,
     warn_on_fallback = true,
-    picker = "auto", -- "auto", "native", "snacks", "telescope", "fzf-lua"
     version_selection = {
         enabled = false,
         languages = {
@@ -19,6 +18,9 @@ local default_config = {
         },
         include_prerelease = false,
         max_versions_shown = 20,
+    },
+    ui = {
+        telescope = false,
     },
 }
 
@@ -304,12 +306,9 @@ local function validate_config(user_config)
         end
     end
 
-    if user_config.picker ~= nil then
-        local valid_pickers = { auto = true, native = true, snacks = true, telescope = true, ["fzf-lua"] = true }
-        if type(user_config.picker) ~= "string" then
-            table.insert(errors, "picker must be a string")
-        elseif not valid_pickers[user_config.picker] then
-            table.insert(errors, string.format("picker must be one of: auto, native, snacks, telescope, fzf-lua (got: %s)", user_config.picker))
+    if user_config.ui then
+        if user_config.ui.telescope ~= nil and type(user_config.ui.telescope) ~= "boolean" then
+            table.insert(errors, "ui.telescope must be a boolean")
         end
     end
 

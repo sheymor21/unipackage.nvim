@@ -51,15 +51,15 @@ local default_appearance = {
 
 -- Terminal-style icons
 local icons = {
-    package = "[*]",
-    folder = "[>]",
-    count = "[#]",
-    version = "[v]",
-    arrow = "->",
-    bullet = "*",
-    star = "*",
-    check = "[OK]",
-    info = "[i]",
+    package = "◆",
+    folder = "▸",
+    count = "#",
+    version = "v",
+    arrow = "→",
+    bullet = "•",
+    star = "★",
+    check = "✓",
+    info = "i",
 }
 
 --- Apply highlight configurations
